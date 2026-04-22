@@ -84,10 +84,10 @@ function HistoricoTable({ events, loading }: { events: ManejoEvent[]; loading: b
 ══════════════════════════════════════════════════════════════ */
 
 function LotesTab({
-  animals, pastures, categories, onReload, farmName,
+  animals, pastures, categories, onReload, farmName, canEdit = true,
 }: {
   animals: Animal[]; pastures: Pasture[]; categories: AnimalCategory[];
-  onReload: () => void; farmName: string;
+  onReload: () => void; farmName: string; canEdit?: boolean;
 }) {
   const [alocarAnimal, setAlocarAnimal] = useState<Animal | null>(null);
   const [pastoSel, setPastoSel] = useState('');
@@ -240,7 +240,7 @@ function LotesTab({
           </td>
           <td className="px-4 py-2.5 text-xs text-gray-500">{a.sexo ?? '—'}</td>
           <td className="px-4 py-2.5 no-print">
-            {!a.pasto_id ? (
+            {canEdit && (!a.pasto_id ? (
               <button
                 onClick={() => { setAlocarAnimal(a); setPastoSel(''); }}
                 className="text-xs px-2.5 py-1 rounded-lg border border-teal-300 text-teal-600 hover:bg-teal-50 transition-colors font-medium"
@@ -249,7 +249,7 @@ function LotesTab({
               </button>
             ) : (
               <span className="text-[10px] text-gray-400 italic">use Transferir</span>
-            )}
+            ))}
           </td>
         </tr>
         {(a.bezerros_quantidade ?? 0) > 0 && (
@@ -787,10 +787,10 @@ function LotesTab({
                             <p className="text-base font-bold text-gray-800 leading-none">{a.peso_medio ? <>{a.peso_medio}<span className="text-[10px] font-normal text-gray-400"> kg</span></> : '—'}</p>
                           </div>
                         </div>
-                        <button onClick={() => { setAlocarAnimal(a); setPastoSel(''); }}
+                        {canEdit && <button onClick={() => { setAlocarAnimal(a); setPastoSel(''); }}
                           className="w-full text-xs px-3 py-1.5 rounded-lg border border-teal-300 text-teal-600 hover:bg-teal-50 transition-colors font-semibold no-print">
                           Alocar ao Pasto
-                        </button>
+                        </button>}
                       </div>
                     );
                   })}
@@ -877,9 +877,9 @@ function LotesTab({
 ══════════════════════════════════════════════════════════════ */
 
 function TransferirTab({
-  animals, pastures, farmId, onReload, categories, userName,
+  animals, pastures, farmId, onReload, categories, userName, canEdit = true,
 }: {
-  animals: Animal[]; pastures: Pasture[]; farmId: string; onReload: () => void; categories: AnimalCategory[]; userName?: string;
+  animals: Animal[]; pastures: Pasture[]; farmId: string; onReload: () => void; categories: AnimalCategory[]; userName?: string; canEdit?: boolean;
 }) {
   const [loteId, setLoteId]         = useState('');
   const [destPastoId, setDestPastoId] = useState('');
@@ -972,8 +972,8 @@ function TransferirTab({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Form */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+      {/* Form — apenas quem pode editar */}
+      {canEdit && <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <ArrowRight className="w-4 h-4 text-teal-600" />
           <h3 className="font-semibold text-gray-900">Transferir lote</h3>
@@ -1136,7 +1136,7 @@ function TransferirTab({
           <ArrowRight className="w-4 h-4" />
           {saving ? 'Transferindo...' : isParcial ? 'Confirmar Transferência Parcial' : 'Confirmar Transferência'}
         </button>
-      </div>
+      </div>}
 
       {/* Histórico */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -1209,9 +1209,9 @@ function DestinoSelector({ destino, setDestino, loteDestId, setLoteDestId, novoN
 }
 
 function EvolucaoTab({
-  animals, categories, farmId, onReload,
+  animals, categories, farmId, onReload, canEdit = true,
 }: {
-  animals: Animal[]; categories: AnimalCategory[]; farmId: string; onReload: () => void;
+  animals: Animal[]; categories: AnimalCategory[]; farmId: string; onReload: () => void; canEdit?: boolean;
 }) {
   const [subOp, setSubOp]         = useState<SubOp>('categoria');
   const [saving, setSaving]       = useState(false);
@@ -1370,8 +1370,8 @@ function EvolucaoTab({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Form */}
-      <div className="space-y-4">
+      {/* Form — apenas quem pode editar */}
+      {canEdit && <div className="space-y-4">
         {/* Seletor de sub-operação */}
         <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
           {SUB_OPS.map(s => {
@@ -1620,7 +1620,7 @@ function EvolucaoTab({
           </div>
         )}
 
-      </div>
+      </div>}
 
       {/* Histórico */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -1641,9 +1641,9 @@ function EvolucaoTab({
 type TipoSaida = 'abate' | 'venda';
 
 function AbateTab({
-  animals, categories, farmId, onReload,
+  animals, categories, farmId, onReload, canEdit = true,
 }: {
-  animals: Animal[]; categories: AnimalCategory[]; farmId: string; onReload: () => void;
+  animals: Animal[]; categories: AnimalCategory[]; farmId: string; onReload: () => void; canEdit?: boolean;
 }) {
   const [tipoSaida, setTipoSaida] = useState<TipoSaida>('abate');
   const [loteId, setLoteId]       = useState('');
@@ -1702,8 +1702,8 @@ function AbateTab({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Form */}
-      <div className="space-y-4">
+      {/* Form — apenas quem pode editar */}
+      {canEdit && <div className="space-y-4">
         {/* Seletor de tipo */}
         <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
           {SAIDA_TIPOS.map(t => {
@@ -1780,7 +1780,7 @@ function AbateTab({
             {saving ? 'Registrando...' : `Confirmar ${TIPO_LABELS[tipoSaida] ?? 'Saída'}`}
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Histórico */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -1812,7 +1812,8 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 
 export function Manejos() {
   const { activeFarmId, pastures } = useData();
-  const { user } = useAuth();
+  const { user, isAdmin, hasEditPermission } = useAuth();
+  const canEdit = isAdmin || hasEditPermission('manejos');
   const [tab, setTab]             = useState<Tab>('lotes');
   const [animals, setAnimals]     = useState<Animal[]>([]);
   const [categories, setCategories] = useState<AnimalCategory[]>([]);
@@ -1899,18 +1900,18 @@ export function Manejos() {
               exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
               {tab === 'lotes' && (
                 <LotesTab animals={animals} pastures={pastures} categories={categories}
-                  onReload={reload} farmName={farmName} />
+                  onReload={reload} farmName={farmName} canEdit={canEdit} />
               )}
               {tab === 'transferir' && (
                 <TransferirTab animals={animals} pastures={pastures}
-                  farmId={activeFarmId} onReload={reload} categories={categories} userName={user?.name} />
+                  farmId={activeFarmId} onReload={reload} categories={categories} userName={user?.name} canEdit={canEdit} />
               )}
               {tab === 'evolucao' && (
                 <EvolucaoTab animals={animals} categories={categories}
-                  farmId={activeFarmId} onReload={reload} />
+                  farmId={activeFarmId} onReload={reload} canEdit={canEdit} />
               )}
               {tab === 'abate' && (
-                <AbateTab animals={animals} categories={categories} farmId={activeFarmId} onReload={reload} />
+                <AbateTab animals={animals} categories={categories} farmId={activeFarmId} onReload={reload} canEdit={canEdit} />
               )}
             </motion.div>
           </AnimatePresence>

@@ -87,6 +87,26 @@ export function aggregateEntriesByPasto(entries: DataEntry[]): DataEntry[] {
   });
 }
 
+/**
+ * Calcula consumo por lançamento individual usando intervalo até o próximo lançamento.
+ * Usado para gráfico de série temporal quando um pasto específico é selecionado.
+ */
+export function timeSeriesConsumo(entries: DataEntry[]): DataEntry[] {
+  const sorted = [...entries].sort((a, b) => (a.data ?? '').localeCompare(b.data ?? ''));
+  return sorted.map((e, i) => {
+    const next = sorted[i + 1];
+    let dias = e.periodo > 0 ? e.periodo : 30;
+    if (next?.data && e.data) {
+      const d1 = new Date(e.data  + 'T12:00:00');
+      const d2 = new Date(next.data + 'T12:00:00');
+      const calc = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+      if (calc > 0) dias = calc;
+    }
+    const consumo = e.kg > 0 && e.quantidade > 0 ? e.kg / e.quantidade / dias : 0;
+    return { ...e, consumo, periodo: dias };
+  });
+}
+
 export function cn(...classes: (string | undefined | false | null)[]): string {
   return classes.filter(Boolean).join(' ');
 }

@@ -19,6 +19,7 @@ interface SupplementSectionProps {
   entries: DataEntry[];
   periodo?: string;
   farmName?: string;
+  timeEntries?: DataEntry[]; // série temporal (por data) quando pasto selecionado
 }
 
 function RefLabel({ value, color, viewBox }: { value: string; color: string; viewBox?: { x: number; y: number; width: number } }) {
@@ -38,7 +39,7 @@ function calcScale(dataMax: number): { max: number; step: number } {
   return { max, step };
 }
 
-export function SupplementSection({ tipo, color, entries, periodo = 'MARÇO 2025', farmName = 'FAZENDA MALHADA GRANDE' }: SupplementSectionProps) {
+export function SupplementSection({ tipo, color, entries, periodo = 'MARÇO 2025', farmName = 'FAZENDA MALHADA GRANDE', timeEntries }: SupplementSectionProps) {
   const avg      = averageConsumo(entries);
   const totalQtd = sumQuantidade(entries);
 
@@ -62,7 +63,12 @@ export function SupplementSection({ tipo, color, entries, periodo = 'MARÇO 2025
   const scale    = calcScale(dataMax);
   const chartMax = scale.max;
 
-  const chartData = entries.map((e) => ({ name: e.pasto, value: e.consumo }));
+  const chartData = timeEntries && timeEntries.length > 0
+    ? timeEntries.map(e => ({
+        name:  e.data ? e.data.split('-').reverse().slice(0, 2).join('/') : e.pasto,
+        value: e.consumo,
+      }))
+    : entries.map((e) => ({ name: e.pasto, value: e.consumo }));
 
   const numTicks = Math.round(chartMax / scale.step);
   const yTicks: number[] = [];
@@ -95,11 +101,11 @@ export function SupplementSection({ tipo, color, entries, periodo = 'MARÇO 2025
         <div className="flex items-center gap-3">
           {avgMeta != null && (() => {
             const pct = avgMeta > 0 ? (avg / avgMeta) : 1;
-            const isVerde   = pct <= 1;
-            const isAmarelo = pct > 1 && pct <= 1.15;
+            const isVerde   = pct >= 0.9 && pct <= 1.1;
+            const isAmarelo = pct > 1.1;
             const bg    = isVerde ? 'rgba(34,197,94,0.25)' : isAmarelo ? 'rgba(234,179,8,0.30)' : 'rgba(239,68,68,0.25)';
             const emoji = isVerde ? '🟢' : isAmarelo ? '🟡' : '🔴';
-            const label = isVerde ? 'DENTRO DA META' : isAmarelo ? 'ATENÇÃO: META' : 'ACIMA DA META';
+            const label = isVerde ? 'DENTRO DA META' : isAmarelo ? 'ACIMA DA META' : 'ABAIXO DA META';
             return (
               <span
                 className="text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5"
@@ -130,7 +136,8 @@ export function SupplementSection({ tipo, color, entries, periodo = 'MARÇO 2025
                 <th className="py-2 text-right font-bold w-24">SACOS</th>
                 <th className="py-2 text-right font-bold w-36">TOTAL KG OFERTADO</th>
                 <th className="py-2 text-right font-bold w-32">CONSUMO (KG/CAB DIA)</th>
-                {hasMeta        && <th className="py-2 text-right font-bold w-32">META (KG/CAB DIA)</th>}
+                {hasMeta        && <th className="py-2 text-right font-bold w-32">META (%PV)</th>}
+                {hasMeta        && <th className="py-2 text-right font-bold w-28">DESVIO</th>}
                 {hasDesembolso  && <th className="py-2 text-right font-bold w-32">DESEMBOLSO (R$/CAB DIA)</th>}
                 {hasDesembolso  && <th className="py-2 text-right font-bold w-36">DESEMBOLSO NO PERÍODO (R$/CAB)</th>}
               </tr>
@@ -150,25 +157,31 @@ export function SupplementSection({ tipo, color, entries, periodo = 'MARÇO 2025
                   <td className="py-2 text-right text-gray-700 tabular-nums">{fmtInt(row.kg)}</td>
                   <td className="py-2 text-right font-bold text-gray-900 tabular-nums">{fmt(row.consumo)}</td>
                   {hasMeta && (() => {
-                    const over = row.meta != null && row.consumo > row.meta;
-                    const ok   = row.meta != null && row.consumo <= row.meta;
+                    const desvio = row.meta != null ? row.consumo - row.meta : null;
+                    const over   = desvio != null && desvio > 0.001;
+                    const under  = desvio != null && desvio < -0.001;
+                    // Lógica pecuária: abaixo da meta = animal sub-alimentado (🔴), acima = atenção custo (🟡)
+                    const farol     = desvio == null ? null : over ? '🟡' : under ? '🔴' : '🟢';
+                    const txtColor  = desvio == null ? '#6b7280' : over ? '#854d0e' : under ? '#991b1b' : '#14532d';
+                    const bgColor   = desvio == null ? 'transparent' : over ? '#fef9c3' : under ? '#fee2e2' : '#dcfce7';
+                    const titleStr  = over ? 'Acima da meta (custo elevado)' : under ? 'Abaixo da meta (sub-alimentação)' : 'Dentro da meta';
                     return (
-                      <td
-                        className="py-2 text-right tabular-nums font-bold rounded-sm"
-                        style={{
-                          color:           row.meta != null ? (over ? '#991b1b' : '#14532d') : '#6b7280',
-                          backgroundColor: row.meta != null ? (over ? '#fee2e2' : '#dcfce7') : 'transparent',
-                          paddingRight: '6px',
-                          paddingLeft:  '6px',
-                        }}
-                        title={over ? 'Acima da meta' : ok ? 'Dentro da meta' : ''}
-                      >
-                        {row.meta != null ? (
-                          <span className="flex items-center justify-end gap-1">
-                            {over ? '▲' : '▼'} {fmt(row.meta)}
-                          </span>
-                        ) : '—'}
-                      </td>
+                      <>
+                        <td className="py-2 text-right tabular-nums font-bold text-gray-700">
+                          {row.meta != null ? fmt(row.meta) : '—'}
+                        </td>
+                        <td
+                          className="py-2 text-right tabular-nums font-bold rounded-sm"
+                          style={{ color: txtColor, backgroundColor: bgColor, paddingRight: '6px', paddingLeft: '6px' }}
+                          title={titleStr}
+                        >
+                          {desvio != null ? (
+                            <span className="flex items-center justify-end gap-1">
+                              {farol} {over ? '+' : ''}{fmt(desvio)}
+                            </span>
+                          ) : '—'}
+                        </td>
+                      </>
                     );
                   })()}
                   {hasDesembolso && (
@@ -206,10 +219,12 @@ export function SupplementSection({ tipo, color, entries, periodo = 'MARÇO 2025
           {/* Meta + Semáforo */}
           {avgMeta != null && (() => {
             const ratio = avg / avgMeta;
-            const semaforo = ratio <= 1 ? '🟢' : ratio <= 1.15 ? '🟡' : '🔴';
-            const bgColor  = ratio <= 1 ? '#dcfce7' : ratio <= 1.15 ? '#fef9c3' : '#fee2e2';
-            const txtColor = ratio <= 1 ? '#14532d' : ratio <= 1.15 ? '#854d0e' : '#991b1b';
-            const label    = ratio <= 1 ? 'DENTRO' : ratio <= 1.15 ? 'ATENÇÃO' : 'ACIMA';
+            const isVerde   = ratio >= 0.9 && ratio <= 1.1;
+            const isAmarelo = ratio > 1.1;
+            const semaforo = isVerde ? '🟢' : isAmarelo ? '🟡' : '🔴';
+            const bgColor  = isVerde ? '#dcfce7' : isAmarelo ? '#fef9c3' : '#fee2e2';
+            const txtColor = isVerde ? '#14532d' : isAmarelo ? '#854d0e' : '#991b1b';
+            const label    = isVerde ? 'DENTRO' : isAmarelo ? 'ACIMA' : 'ABAIXO';
             return (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Meta</span>

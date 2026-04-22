@@ -139,7 +139,7 @@ type DeleteTarget = { id: string; label: string; onDelete: () => Promise<void> }
 type EditTarget   = { id: string; label: string; onEdit: () => void };
 
 function SimpleTab({
-  table, label, icon: Icon, emptyText, newLabel, onDataChange, initialItems, predefinedOptions, onRequestDelete, onRequestEdit,
+  table, label, icon: Icon, emptyText, newLabel, onDataChange, initialItems, predefinedOptions, onRequestDelete, onRequestEdit, canEdit = true,
 }: {
   table: string; label: string; icon: React.ElementType;
   emptyText: string; newLabel: string;
@@ -148,6 +148,7 @@ function SimpleTab({
   predefinedOptions?: readonly string[];
   onRequestDelete?: (target: DeleteTarget) => void;
   onRequestEdit?: (target: EditTarget) => void;
+  canEdit?: boolean;
 }) {
   const { activeFarmId } = useData();
   const [items, setItems] = useState<SimpleItem[]>(initialItems ?? []);
@@ -237,7 +238,7 @@ function SimpleTab({
             className="w-full h-9 pl-8 pr-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
           />
         </div>
-        <AddBtn label={newLabel} onClick={() => setShowAdd(v => !v)} />
+        {canEdit && <AddBtn label={newLabel} onClick={() => setShowAdd(v => !v)} />}
       </div>
 
       {showAdd && (
@@ -311,11 +312,11 @@ function SimpleTab({
                         </td>
                         <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{item.observacoes || '—'}</td>
                         <td className="px-4 py-3">
-                          <ActionBtns
+                          {canEdit && <ActionBtns
                             onEdit={() => onRequestEdit
                               ? onRequestEdit({ id: item.id, label: `Editar ${label} "${item.nome}"`, onEdit: () => setEditingId(item.id) })
                               : setEditingId(item.id)}
-                            onDelete={() => onDelete(item.id, item.nome)} />
+                            onDelete={() => onDelete(item.id, item.nome)} />}
                         </td>
                       </motion.tr>
                     )
@@ -379,7 +380,7 @@ function PastureEditRow({ pasture, retiros, forragens, onSave, onCancel }: {
   );
 }
 
-function PastosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: (target: DeleteTarget) => void; onRequestEdit?: (target: EditTarget) => void }) {
+function PastosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onRequestDelete?: (target: DeleteTarget) => void; onRequestEdit?: (target: EditTarget) => void; canEdit?: boolean }) {
   const { pastures, addPasture, deletePasture, updatePasture, loading } = useData();
   const [retiros, setRetiros] = useState<SimpleItem[]>([]);
   const [showRetiros, setShowRetiros] = useState(false);
@@ -528,7 +529,7 @@ function PastosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: (targ
             </select>
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
           </div>
-          <AddBtn label="Novo Pasto" onClick={() => setShowAddForm(v => !v)} />
+          {canEdit && <AddBtn label="Novo Pasto" onClick={() => setShowAddForm(v => !v)} />}
         </div>
         {showAddForm && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -630,11 +631,11 @@ function PastosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: (targ
                               : <span className="text-gray-400">—</span>}
                           </td>
                           <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{p.observacoes || '—'}</td>
-                          <td className="px-4 py-3"><ActionBtns
+                          <td className="px-4 py-3">{canEdit && <ActionBtns
                             onEdit={() => onRequestEdit
                               ? onRequestEdit({ id: p.id, label: `Editar pasto "${p.nome}"`, onEdit: () => setEditingId(p.id) })
                               : setEditingId(p.id)}
-                            onDelete={() => onDelete(p)} /></td>
+                            onDelete={() => onDelete(p)} />}</td>
                         </motion.tr>
                       )
                     )}
@@ -740,7 +741,7 @@ function AnimalEditRow({ item, categories, onSave, onCancel }: {
   );
 }
 
-function AnimaisTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: (target: DeleteTarget) => void; onRequestEdit?: (target: EditTarget) => void }) {
+function AnimaisTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onRequestDelete?: (target: DeleteTarget) => void; onRequestEdit?: (target: EditTarget) => void; canEdit?: boolean }) {
   const { activeFarmId } = useData();
   const [items, setItems] = useState<Animal[]>(_animaisCache);
   const [categories, setCategories] = useState<AnimalCategory[]>(_acatCache);
@@ -909,7 +910,7 @@ function AnimaisTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: (tar
               className="w-full h-9 pl-8 pr-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
             />
           </div>
-          <AddBtn label="Novo Lote" onClick={() => setShowAddForm(v => !v)} />
+          {canEdit && <AddBtn label="Novo Lote" onClick={() => setShowAddForm(v => !v)} />}
         </div>
 
         {showAddForm && (
@@ -1053,11 +1054,11 @@ function AnimaisTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: (tar
                             <td className="px-4 py-3 text-gray-600">{item.bezerros_quantidade ?? '—'}</td>
                             <td className="px-4 py-3 text-gray-600">{item.bezerros_peso_medio ? `${item.bezerros_peso_medio} kg` : '—'}</td>
                             <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{item.observacoes || '—'}</td>
-                            <td className="px-4 py-3"><ActionBtns
+                            <td className="px-4 py-3">{canEdit && <ActionBtns
                               onEdit={() => onRequestEdit
                                 ? onRequestEdit({ id: item.id, label: `Editar lote "${item.nome}"`, onEdit: () => setEditingId(item.id) })
                                 : setEditingId(item.id)}
-                              onDelete={() => onDelete(item.id, item.nome)} /></td>
+                              onDelete={() => onDelete(item.id, item.nome)} />}</td>
                           </motion.tr>
                         )
                       );
@@ -1182,7 +1183,7 @@ function SupEditRow({ item, onSave, onCancel }: { item: SupplementType; onSave: 
   );
 }
 
-function SuplementosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: (target: DeleteTarget) => void; onRequestEdit?: (target: EditTarget) => void }) {
+function SuplementosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onRequestDelete?: (target: DeleteTarget) => void; onRequestEdit?: (target: EditTarget) => void; canEdit?: boolean }) {
   const { activeFarmId } = useData();
   const [items, setItems] = useState<SupplementType[]>(_suplementosCache);
   const [loading, setLoading] = useState(false);
@@ -1294,7 +1295,7 @@ function SuplementosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: 
             className="w-full h-9 pl-8 pr-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
           />
         </div>
-        <AddBtn label="Novo Suplemento" onClick={() => setShowAddForm(v => !v)} />
+        {canEdit && <AddBtn label="Novo Suplemento" onClick={() => setShowAddForm(v => !v)} />}
       </div>
       {showAddForm && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -1391,11 +1392,11 @@ function SuplementosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: 
                         {item.meta_pct || (item.consumo ? (META_CONSUMO[item.consumo] || '—') : '—')}
                       </td>
                       <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{item.observacoes || '—'}</td>
-                      <td className="px-4 py-3"><ActionBtns
+                      <td className="px-4 py-3">{canEdit && <ActionBtns
                         onEdit={() => onRequestEdit
                           ? onRequestEdit({ id: item.id, label: `Editar suplemento "${item.nome}"`, onEdit: () => setEditingId(item.id) })
                           : setEditingId(item.id)}
-                        onDelete={() => onDelete(item.id, item.nome)} /></td>
+                        onDelete={() => onDelete(item.id, item.nome)} />}</td>
                     </motion.tr>
                   ))}
                 </tbody>
@@ -1447,7 +1448,7 @@ function EmpEditRow({ item, onSave, onCancel }: { item: Employee; onSave: (d: Em
   );
 }
 
-function FuncionariosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?: (target: DeleteTarget) => void; onRequestEdit?: (target: EditTarget) => void }) {
+function FuncionariosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onRequestDelete?: (target: DeleteTarget) => void; onRequestEdit?: (target: EditTarget) => void; canEdit?: boolean }) {
   const { activeFarmId } = useData();
   const [items, setItems] = useState<Employee[]>(_funcionariosCache);
   const [loading, setLoading] = useState(false);
@@ -1546,7 +1547,7 @@ function FuncionariosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?:
             className="w-full h-9 pl-8 pr-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
           />
         </div>
-        <AddBtn label="Novo Funcionário" onClick={() => setShowAddForm(v => !v)} />
+        {canEdit && <AddBtn label="Novo Funcionário" onClick={() => setShowAddForm(v => !v)} />}
       </div>
       {showAddForm && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -1600,11 +1601,11 @@ function FuncionariosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?:
                     <td className="px-4 py-3 font-medium text-gray-900">{item.nome}</td>
                     <td className="px-4 py-3 text-gray-600">{item.funcao || '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{item.contato || '—'}</td>
-                    <td className="px-4 py-3"><ActionBtns
+                    <td className="px-4 py-3">{canEdit && <ActionBtns
                       onEdit={() => onRequestEdit
                         ? onRequestEdit({ id: item.id, label: `Editar funcionário "${item.nome}"`, onEdit: () => setEditingId(item.id) })
                         : setEditingId(item.id)}
-                      onDelete={() => onDelete(item.id, item.nome)} /></td>
+                      onDelete={() => onDelete(item.id, item.nome)} />}</td>
                   </motion.tr>
                 ));
               })()}</tbody>
@@ -1621,7 +1622,8 @@ function FuncionariosTab({ onRequestDelete, onRequestEdit }: { onRequestDelete?:
    Cadastros — página principal
 ═══════════════════════════════════════════════════════════════ */
 export function Cadastros() {
-  const { user } = useAuth();
+  const { user, isAdmin, hasEditPermission } = useAuth();
+  const canEdit = isAdmin || hasEditPermission('cadastros');
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = (searchParams.get('aba') ?? 'pastos') as TabKey;
   const [deleteTarget, setDeleteTarget]             = useState<DeleteTarget | null>(null);
@@ -1693,11 +1695,11 @@ export function Cadastros() {
         </div>
 
         {/* Tab content */}
-        {activeTab === 'pastos'       && <PastosTab onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} />}
-        {activeTab === 'animais'      && <AnimaisTab onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} />}
-        {activeTab === 'forragens'    && <SimpleTab table="forage_types" label="Forragem" icon={Sprout} emptyText="Nenhuma forragem cadastrada" newLabel="Nova Forragem" predefinedOptions={FORRAGENS} onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} />}
-        {activeTab === 'suplementos'  && <SuplementosTab onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} />}
-        {activeTab === 'funcionarios' && <FuncionariosTab onRequestDelete={setSimpleDeleteTarget} onRequestEdit={setEditTarget} />}
+        {activeTab === 'pastos'       && <PastosTab onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
+        {activeTab === 'animais'      && <AnimaisTab onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
+        {activeTab === 'forragens'    && <SimpleTab table="forage_types" label="Forragem" icon={Sprout} emptyText="Nenhuma forragem cadastrada" newLabel="Nova Forragem" predefinedOptions={FORRAGENS} onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
+        {activeTab === 'suplementos'  && <SuplementosTab onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
+        {activeTab === 'funcionarios' && <FuncionariosTab onRequestDelete={setSimpleDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
 
       </motion.div>
 

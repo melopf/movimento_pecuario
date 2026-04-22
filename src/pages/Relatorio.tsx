@@ -12,7 +12,7 @@ import { SupplementSection } from '../components/SupplementSection';
 import { SkeletonCard, SkeletonChart } from '../components/Skeleton';
 import { SupplementPills } from '../components/SupplementPills';
 import { manejoService, type Animal } from '../services/manejoService';
-import { groupByType, averageConsumo, sortedTypes, aggregateEntriesByPasto } from '../lib/utils';
+import { groupByType, averageConsumo, sortedTypes, aggregateEntriesByPasto, timeSeriesConsumo } from '../lib/utils';
 import { getSupplementColor } from '../lib/data';
 
 const MONTH_FULL = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
@@ -726,6 +726,9 @@ export function Relatorio() {
               {activeTypes.map((tipo, i) => {
                 const sectionEntries = aggregatedGroupsWithMeta[tipo] ?? [];
                 const color = getSupplementColor(tipo, i);
+                const rawForTipo = filterPasto
+                  ? timeSeriesConsumo(filtered.filter(e => e.tipo.toUpperCase() === tipo.toUpperCase()))
+                  : undefined;
                 return (
                   <SupplementSection
                     key={tipo}
@@ -734,6 +737,7 @@ export function Relatorio() {
                     entries={sectionEntries}
                     periodo={periodoStr.toUpperCase() || 'TODOS OS PERÍODOS'}
                     farmName={farmName}
+                    timeEntries={rawForTipo}
                   />
                 );
               })}

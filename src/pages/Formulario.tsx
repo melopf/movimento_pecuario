@@ -125,7 +125,8 @@ function nextYM(ym: string) {
 
 export function Formulario() {
   const { entries, addEntry, updateEntry, removeEntry, pastures, loading, activeFarmId } = useData();
-  const { user } = useAuth();
+  const { user, isAdmin, hasEditPermission } = useAuth();
+  const canEdit = isAdmin || hasEditPermission('formulario');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingEditId, setPendingEditId] = useState<string | null>(null);
   const [supplementTypes, setSupplementTypes] = useState<SupplementType[]>([]);
@@ -445,7 +446,7 @@ export function Formulario() {
         </div>
 
         {/* ── Card: Novo Registro ── */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {canEdit && <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           {/* Card header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <h2 className="text-base font-bold text-gray-900">Novo Registro</h2>
@@ -688,7 +689,7 @@ export function Formulario() {
               </div>
             )}
           </form>
-        </div>
+        </div>}
 
         {/* ── Card: Registros Salvos ── */}
         <motion.div
@@ -714,8 +715,8 @@ export function Formulario() {
                 {savedFilter && <button onClick={() => setSavedFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"><X className="w-3 h-3" /></button>}
               </div>
             </div>
-            {/* Botão Fechar / Reabrir Mês */}
-            <button
+            {/* Botão Fechar / Reabrir Mês — apenas quem pode editar */}
+            {canEdit && <button
               type="button"
               onClick={() => isActiveClosed
                 ? abrirModalSenha('reabrir', activeMonth)
@@ -729,7 +730,7 @@ export function Formulario() {
             >
               {isActiveClosed ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
               {isActiveClosed ? `Reabrir ${ymLabel(activeMonth)}` : `Fechar ${ymLabel(activeMonth)}`}
-            </button>
+            </button>}
           </div>
 
           {/* ── Chips de mês ── */}
@@ -835,7 +836,7 @@ export function Formulario() {
                         <td className="px-4 py-3">
                           {isActiveClosed ? (
                             <Lock className="w-4 h-4 text-gray-300" />
-                          ) : (
+                          ) : canEdit ? (
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => setPendingEditId(entry.id ?? null)}
@@ -853,7 +854,7 @@ export function Formulario() {
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
-                          )}
+                          ) : null}
                         </td>
                       </motion.tr>
                     );
