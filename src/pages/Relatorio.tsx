@@ -25,6 +25,7 @@ function periodFull(ym: string) {
 interface SuppType {
   nome: string;
   consumo?: string | number | null;
+  meta_pct?: string | null;
   valor_kg?: number | null;
 }
 
