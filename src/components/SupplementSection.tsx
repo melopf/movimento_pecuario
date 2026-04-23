@@ -168,7 +168,12 @@ export function SupplementSection({ tipo, color, entries, periodo = 'MARÇO 2025
                     return (
                       <>
                         <td className="py-2 text-right tabular-nums font-bold text-gray-700">
-                          {row.metaLabel ?? (row.meta != null ? fmt(row.meta) : '—')}
+                          {row.meta != null ? (
+                            <span className="flex flex-col items-end leading-tight">
+                              <span>{fmt(row.meta)}</span>
+                              {row.metaLabel && <span className="text-[10px] font-normal text-gray-400">{row.metaLabel}</span>}
+                            </span>
+                          ) : '—'}
                         </td>
                         <td
                           className="py-2 text-right tabular-nums font-bold rounded-sm"
