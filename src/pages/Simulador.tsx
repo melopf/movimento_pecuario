@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { FlaskConical, Play, TrendingDown, TrendingUp, ChevronDown, RotateCcw } from 'lucide-react';
+import { FlaskConical, Play, ChevronDown, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { supabaseAdmin } from '../lib/supabase';
