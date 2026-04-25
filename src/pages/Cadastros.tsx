@@ -1412,6 +1412,19 @@ function SuplementosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { on
 /* ═══════════════════════════════════════════════════════════════
    SimuladosTab — Admin Only
 ═══════════════════════════════════════════════════════════════ */
+interface SimuladorParam {
+  epoca: string; categoria: string; g_100kg_pv: number;
+  gmd_regular: number; gmd_bom: number; gmd_otimo: number;
+}
+
+const EPOCA_STYLE: Record<string, { label: string; bg: string; color: string }> = {
+  seca:      { label: 'Seca (Jul–Out)',       bg: '#fef3c7', color: '#b45309' },
+  transicao: { label: 'Transição (Mar–Jun)',  bg: '#dbeafe', color: '#1d4ed8' },
+  aguas:     { label: 'Águas (Nov–Fev)',      bg: '#d1fae5', color: '#065f46' },
+};
+
+let _paramsCache: SimuladorParam[] = [];
+
 interface SupplementSimulated {
   id: string; farm_id: string; nome: string; unidade: string;
   peso?: number; valor_kg?: number; consumo?: string; meta_pct?: string;
@@ -1425,19 +1438,7 @@ interface SimuladoForm {
   categoria: string;
 }
 
-interface SimuladorParam {
-  epoca: string; categoria: string; g_100kg_pv: number;
-  gmd_regular: number; gmd_bom: number; gmd_otimo: number;
-}
-
-const EPOCA_STYLE: Record<string, { label: string; color: string; bg: string }> = {
-  seca:      { label: 'Seca (Jul–Out)',       color: '#b45309', bg: '#fef3c7' },
-  transicao: { label: 'Transição (Mar–Jun)',  color: '#1d4ed8', bg: '#dbeafe' },
-  aguas:     { label: 'Águas (Nov–Fev)',      color: '#1a6040', bg: '#dcfce7' },
-};
-
 let _simuladosCache: SupplementSimulated[] = [];
-let _paramsCache: SimuladorParam[] = [];
 
 // Categorias técnicas do simulador (tabela Consumo x GMD x Época)
 const CATEGORIAS_SUPL_SIM = [
@@ -1458,11 +1459,11 @@ const CATEGORIAS_SIMULADOR = [
 function SimuladosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onRequestDelete?: (t: DeleteTarget) => void; onRequestEdit?: (t: EditTarget) => void; canEdit?: boolean }) {
   const { activeFarmId } = useData();
   const [items,      setItems]      = useState<SupplementSimulated[]>(_simuladosCache);
-  const [params,     setParams]     = useState<SimuladorParam[]>(_paramsCache);
   const [loading,    setLoading]    = useState(false);
   const [editingId,  setEditingId]  = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [params,     setParams]     = useState<SimuladorParam[]>(_paramsCache);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const { register, handleSubmit, reset, formState: { errors } } = useForm<SimuladoForm>({
     defaultValues: { unidade: 'kg', peso: 0, valor_kg: 0, consumo: '', meta_pct: '', ganho_peso_esperado: 0, categoria_alvo: '', custo_cab_dia: 0, observacoes_tecnicas: '', categoria: '' },
   });
@@ -1473,13 +1474,13 @@ function SimuladosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onRe
     setLoading(true);
     (async () => {
       try {
-        const [{ data: suplementos }, { data: paramsData }] = await Promise.all([
+        const [{ data: supls }, { data: prms }] = await Promise.all([
           supabaseAdmin.from('supplement_simulated').select('*').eq('farm_id', activeFarmId).order('nome'),
-          _paramsCache.length ? { data: _paramsCache } : supabaseAdmin.from('simulador_parametros').select('*'),
+          _paramsCache.length > 0 ? Promise.resolve({ data: _paramsCache }) : supabaseAdmin.from('simulador_parametros').select('*'),
         ]);
         if (mounted) {
-          _simuladosCache = suplementos ?? []; setItems(_simuladosCache);
-          _paramsCache = paramsData ?? []; setParams(_paramsCache);
+          _simuladosCache = supls ?? []; setItems(_simuladosCache);
+          if (prms && prms.length > 0) { _paramsCache = prms as SimuladorParam[]; setParams(_paramsCache); }
         }
       } finally { if (mounted) setLoading(false); }
     })();
@@ -1669,7 +1670,9 @@ function SimuladosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onRe
                           <td className="px-4 py-3 text-gray-600 uppercase text-sm">{item.unidade}</td>
                           <td className="px-4 py-3 text-gray-700 font-medium">{item.valor_kg ? `R$ ${item.valor_kg.toFixed(3)}/kg` : '—'}</td>
                           <td className="px-4 py-3 text-gray-600">{item.peso ? `${item.peso} kg` : '—'}</td>
-                              </td>
+                          <td className="px-4 py-3">
+                            {canEdit && <ActionBtns onEdit={() => { setExpandedId(null); setEditingId(item.id); }} onDelete={() => onDelete(item.id, item.nome)} />}
+                          </td>
                         </motion.tr>
 
                         {/* ── Linha expandida: matriz Consumo × GMD × Época ── */}
