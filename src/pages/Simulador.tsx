@@ -17,7 +17,7 @@ interface SupplSim {
   id: string; nome: string; valor_kg?: number; meta_pct?: string;
   ganho_peso_esperado?: number; categoria?: string;
 }
-interface Pasture { id: string; nome: string; }
+interface Pasture { id: string; nome: string; qualidade_forragem?: string; }
 interface SimuladorParam {
   epoca: string; categoria: string; g_100kg_pv: number;
   gmd_regular: number; gmd_bom: number; gmd_otimo: number;
@@ -192,7 +192,7 @@ export function Simulador() {
     if (!activeFarmId) return;
     setLoadingData(true);
     Promise.all([
-      supabaseAdmin.from('pastures').select('id, nome').eq('farm_id', activeFarmId).order('nome'),
+      supabaseAdmin.from('pastures').select('id, nome, qualidade_forragem').eq('farm_id', activeFarmId).order('nome'),
       supabaseAdmin.from('supplement_simulated').select('id, nome, valor_kg, meta_pct, ganho_peso_esperado, categoria').eq('farm_id', activeFarmId).order('nome'),
       supabaseAdmin.from('simulador_parametros').select('*'),
     ]).then(([p, s, pr]) => {
@@ -203,9 +203,18 @@ export function Simulador() {
     });
   }, [activeFarmId]);
 
-  /* Auto-fill pasto selecionado */
+  /* Auto-fill pasto selecionado: animais + qualidade da forragem */
   useEffect(() => {
     if (!pastureId || !activeFarmId) return;
+
+    // Auto-fill qualidade da pastagem a partir do cadastro do pasto
+    const pasture = pastures.find(p => p.id === pastureId);
+    if (pasture?.qualidade_forragem) {
+      const map: Record<string, Qualidade> = { REGULAR: 'regular', BOA: 'bom', ÓTIMA: 'otimo' };
+      const q = map[pasture.qualidade_forragem.trim().toUpperCase()] ?? 'bom';
+      handleQualidadeChange(q);
+    }
+
     supabaseAdmin
       .from('animals')
       .select('quantidade, peso_medio')
@@ -219,7 +228,7 @@ export function Simulador() {
         setQtdAnimais(qtd);
         setPesoInicial(qtd > 0 ? Math.round(pond / qtd) : 0);
       });
-  }, [pastureId, activeFarmId]);
+  }, [pastureId, activeFarmId, pastures]);
 
   /* Auto-fill ao selecionar suplemento em uma fase */
   function handleSelectSupl(faseId: number, suplId: string) {
@@ -377,7 +386,10 @@ export function Simulador() {
               <NumInput value={qtdAnimais} onChange={setQtdAnimais} step="1" placeholder="Ex.: 50" />
             </div>
             <div>
-              <label className={labelCls}>Qualidade da Pastagem</label>
+              <label className={labelCls}>
+                Qualidade da Pastagem
+                {pastureId && <span className="ml-1 font-normal text-teal-500 normal-case tracking-normal">← pasto</span>}
+              </label>
               <div className="relative">
                 <select value={qualidadePastagem} onChange={e => handleQualidadeChange(e.target.value as Qualidade)}
                   className={inputCls + ' pr-8 appearance-none'}>
