@@ -179,23 +179,26 @@ export function Simulador() {
     const totalDias    = fasesCalc.reduce((s, f) => s + f.dias, 0);
     const totalSuplem  = fasesCalc.reduce((s, f) => s + f.custoPer, 0);
     const totalGanhoKg = fasesCalc.reduce((s, f) => s + f.ganhoKg, 0);
-    const meses        = totalDias > 0 ? totalDias / 30.5 : 0;
+    const meses        = totalDias > 0 ? totalDias / 30.4 : 0;
 
     const pesoFinal    = pesoInicial + totalGanhoKg;
     const arrobas0     = pesoInicial / 30;
     const arrobasF     = pesoFinal * (rc / 100) / 15;
     const arrobasProd  = arrobasF - arrobas0;
-    const agio         = precoVenda > 0 ? ((precoCompra - precoVenda) / precoVenda) * 100 : 0;
+    // ÁGIO: % ágio pago na compra vs preço de venda — positivo = comprou mais caro
+    const agio         = precoCompra > 0 ? (-(precoVenda - precoCompra) / precoCompra) * 100 : 0;
 
     const precoAnimal  = arrobas0 * precoCompra;
     const despesaTotal = despesaOper * meses;
+    // Financeiro: juros simples sobre o capital imobilizado (conforme planilha)
     const financeiro   = custoOportunidade > 0
-      ? (precoAnimal + totalSuplem + despesaTotal) * (Math.pow(1 + custoOportunidade / 100, meses) - 1)
+      ? (precoAnimal + totalSuplem + despesaTotal) * (custoOportunidade / 100) * meses
       : 0;
     const custoTotal   = precoAnimal + totalSuplem + despesaTotal + financeiro;
     const receita      = arrobasF * precoVenda;
     const lucro        = receita - custoTotal;
-    const custoArroba  = arrobasProd > 0 ? (totalSuplem + despesaTotal) / arrobasProd : 0;
+    // Custo/@ produzida: inclui suplem + despesa + financeiro (não inclui compra do animal)
+    const custoArroba  = arrobasProd > 0 ? (totalSuplem + despesaTotal + financeiro) / arrobasProd : 0;
     const rentabPer    = custoTotal > 0 ? (lucro / custoTotal) * 100 : 0;
     const rentabAm     = meses > 0 ? rentabPer / meses : 0;
     const breakEven    = arrobasF > 0 ? custoTotal / arrobasF : 0;
