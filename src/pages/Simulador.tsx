@@ -290,12 +290,21 @@ export function Simulador() {
   /* ── Cálculos ── */
   const calc = useMemo(() => {
     const fasesCalc = fases.map(f => {
-      const dias        = calcDias(f.dataInicio, f.dataFim);
-      const custoPer    = f.consumo * f.valorKg * dias;
-      const custoMes    = dias > 0 ? custoPer / (dias / 30) : 0;
-      const ganhoKg     = f.gmd * dias;
+      const dias          = calcDias(f.dataInicio, f.dataFim);
+      const custoPer      = f.consumo * f.valorKg * dias;
+      const custoMes      = dias > 0 ? custoPer / (dias / 30) : 0;
+      const ganhoKg       = f.gmd * dias;
       const epocaPrimaria = getEpocaPrimaria(f.dataInicio, f.dataFim);
-      return { ...f, dias, custoPer, custoMes, ganhoKg, epocaPrimaria };
+      // g/100kg PV de referência da tabela do Phyllypi para esta categoria
+      const supl = suppls.find(s => s.id === f.suplementoId);
+      const paramRef = supl?.categoria && epocaPrimaria
+        ? params.find(p => p.epoca === epocaPrimaria && p.categoria === supl.categoria)
+        : null;
+      const g100kgPv    = paramRef?.g_100kg_pv ?? null;
+      const gmdRef      = paramRef
+        ? paramRef[`gmd_${qualidadePastagem}` as keyof SimuladorParam] as number
+        : null;
+      return { ...f, dias, custoPer, custoMes, ganhoKg, epocaPrimaria, g100kgPv, gmdRef };
     });
 
     const totalDias    = fasesCalc.reduce((s, f) => s + f.dias, 0);
@@ -476,7 +485,7 @@ export function Simulador() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  {['#','Período Inicial','Período Final','Época','Dias','Produto','R$/kg','Consumo kg/boi/dia','Custo/Período','Custo/cab/mês','GMD kg/dia','Ganho (kg)',''].map(h => (
+                  {['#','Período Inicial','Período Final','Época','Condição','Dias','Produto','g/100kg PV','Consumo kg/dia','R$/kg','Custo/Período','Custo/cab/mês','GMD tabela','GMD aplicado','Ganho (kg)',''].map(h => (
                     <th key={h} className="px-2 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -502,6 +511,12 @@ export function Simulador() {
                       <td className="px-2 py-2">
                         <EpocaBadge epoca={fc.epocaPrimaria} />
                       </td>
+                      {/* Condição de pastagem — dimensão do PDF */}
+                      <td className="px-2 py-2">
+                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 whitespace-nowrap">
+                          {qualidadePastagem === 'regular' ? 'Regular' : qualidadePastagem === 'bom' ? 'Boa' : 'Ótima'}
+                        </span>
+                      </td>
                       <td className="px-2 py-2 text-center font-bold text-teal-700">
                         {fc.dias > 0 ? `${fc.dias}d` : '—'}
                       </td>
@@ -512,7 +527,7 @@ export function Simulador() {
                           <div className="relative">
                             <select value={fase.suplementoId}
                               onChange={e => handleSelectSupl(fase.id, e.target.value)}
-                              className={inputCls + ' w-48 pr-7 appearance-none text-xs'}>
+                              className={inputCls + ' w-44 pr-7 appearance-none text-xs'}>
                               <option value="">— Selecione —</option>
                               {suppls.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                             </select>
@@ -520,17 +535,24 @@ export function Simulador() {
                           </div>
                         )}
                       </td>
-                      <td className="px-2 py-2">
-                        <input type="number" step="0.01" min="0" placeholder="0,00"
-                          value={fase.valorKg || ''}
-                          onChange={e => updateFase(fase.id, { valorKg: parseFloat(e.target.value) || 0 })}
-                          className={inputCls + ' w-20 text-xs'} />
+                      {/* g/100kg PV — Consumo Sugerido da tabela do Phyllypi */}
+                      <td className="px-2 py-2 text-center">
+                        {fc.g100kgPv != null
+                          ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap" style={{ background: '#dcfce7', color: '#1a6040' }}>{fc.g100kgPv}g</span>
+                          : <span className="text-gray-300 text-xs">—</span>}
                       </td>
+                      {/* Consumo calculado: peso × g/100kg / 1000 */}
                       <td className="px-2 py-2">
                         <input type="number" step="0.001" min="0" placeholder="0,000"
                           value={fase.consumo || ''}
                           onChange={e => updateFase(fase.id, { consumo: parseFloat(e.target.value) || 0 })}
                           className={inputCls + ' w-24 text-xs'} />
+                      </td>
+                      <td className="px-2 py-2">
+                        <input type="number" step="0.01" min="0" placeholder="0,00"
+                          value={fase.valorKg || ''}
+                          onChange={e => updateFase(fase.id, { valorKg: parseFloat(e.target.value) || 0 })}
+                          className={inputCls + ' w-20 text-xs'} />
                       </td>
                       <td className="px-2 py-2 text-right font-semibold whitespace-nowrap" style={{ color: '#1a6040' }}>
                         {fc.custoPer > 0 ? brl(fc.custoPer) : '—'}
@@ -538,6 +560,13 @@ export function Simulador() {
                       <td className="px-2 py-2 text-right text-gray-600 whitespace-nowrap">
                         {fc.custoMes > 0 ? brl(fc.custoMes) : '—'}
                       </td>
+                      {/* GMD de referência da tabela (read-only) */}
+                      <td className="px-2 py-2 text-center">
+                        {fc.gmdRef != null
+                          ? <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${fc.gmdRef < 0 ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-700'}`}>{fc.gmdRef.toFixed(3)}</span>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                      {/* GMD aplicado (editável — pode sobrescrever) */}
                       <td className="px-2 py-2">
                         <input type="number" step="0.001" placeholder="0,000"
                           value={fase.gmd || ''}
@@ -562,14 +591,13 @@ export function Simulador() {
               {calc.totalDias > 0 && (
                 <tfoot>
                   <tr className="border-t-2 border-teal-200 bg-teal-50 font-bold text-xs">
-                    <td colSpan={4} className="px-2 py-2.5 text-teal-700">TOTAL</td>
+                    <td colSpan={5} className="px-2 py-2.5 text-teal-700">TOTAL</td>
                     <td className="px-2 py-2.5 text-teal-700 text-center">{calc.totalDias}d</td>
-                    <td colSpan={3} />
+                    <td colSpan={4} />
                     <td className="px-2 py-2.5 text-right whitespace-nowrap" style={{ color: '#1a6040' }}>
                       {brl(calc.totalSuplem)} /cab
                     </td>
-                    <td />
-                    <td />
+                    <td colSpan={3} />
                     <td className="px-2 py-2.5 text-right whitespace-nowrap" style={{ color: '#1a6040' }}>
                       {calc.totalGanhoKg.toFixed(2)} kg
                     </td>
