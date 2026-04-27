@@ -159,7 +159,7 @@ function EpocaBadge({ epoca }: { epoca: Epoca | null }) {
 ══════════════════════════════════════════════════════════ */
 export function Simulador() {
   const navigate        = useNavigate();
-  const { isAdmin }     = useAuth(); // isAdmin ainda usado para mostrar AdminFarmSelector
+  const { isAdmin }     = useAuth();
   const { activeFarmId } = useData();
 
   const [pastures,    setPastures]    = useState<Pasture[]>([]);
@@ -184,6 +184,9 @@ export function Simulador() {
   const [fases,      setFases]      = useState<Fase[]>([emptyFase(1)]);
   const [showResult, setShowResult] = useState(false);
 
+  useEffect(() => {
+    if (!isAdmin) navigate('/', { replace: true });
+  }, [isAdmin, navigate]);
 
   useEffect(() => {
     if (!activeFarmId) return;
