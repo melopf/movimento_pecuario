@@ -64,7 +64,7 @@ const TABS = [
   { key: 'forragens',    label: 'Forragens',    icon: Sprout,       adminOnly: false },
   { key: 'suplementos',  label: 'Suplementos',  icon: Package,      adminOnly: false },
   { key: 'funcionarios', label: 'Funcionários', icon: Users,        adminOnly: false },
-  { key: 'simulados',    label: 'Simulador',    icon: FlaskConical, adminOnly: true  },
+  { key: 'simulados',    label: 'Simulador',    icon: FlaskConical, adminOnly: false },
 ];
 
 type TabKey = 'pastos' | 'animais' | 'forragens' | 'suplementos' | 'funcionarios' | 'simulados';
@@ -2024,7 +2024,7 @@ export function Cadastros() {
         {activeTab === 'forragens'    && <SimpleTab table="forage_types" label="Forragem" icon={Sprout} emptyText="Nenhuma forragem cadastrada" newLabel="Nova Forragem" predefinedOptions={FORRAGENS} onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
         {activeTab === 'suplementos'  && <SuplementosTab onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
         {activeTab === 'funcionarios' && <FuncionariosTab onRequestDelete={setSimpleDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
-        {activeTab === 'simulados'    && isAdmin && <SimuladosTab onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
+        {activeTab === 'simulados'    && <SimuladosTab onRequestDelete={setDeleteTarget} onRequestEdit={setEditTarget} canEdit={canEdit} />}
 
       </motion.div>
 
