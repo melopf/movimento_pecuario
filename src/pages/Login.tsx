@@ -179,7 +179,7 @@ export function Login() {
             </a>
           </p>
 
-          <p className="text-center text-xs text-gray-400 mt-6">v1.25 © 2025 Suplemento Control</p>
+          <p className="text-center text-xs text-gray-400 mt-6">v1.26 © 2025 Suplemento Control</p>
         </div>
       </div>
     </div>

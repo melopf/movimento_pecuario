@@ -64,7 +64,7 @@ const TABS = [
   { key: 'forragens',    label: 'Forragens',    icon: Sprout,       adminOnly: false },
   { key: 'suplementos',  label: 'Suplementos',  icon: Package,      adminOnly: false },
   { key: 'funcionarios', label: 'Funcionários', icon: Users,        adminOnly: false },
-  { key: 'simulados',    label: 'Simulador',    icon: FlaskConical, adminOnly: true  },
+  { key: 'simulados',    label: 'Cat. Suple',   icon: FlaskConical, adminOnly: true  },
 ];
 
 type TabKey = 'pastos' | 'animais' | 'forragens' | 'suplementos' | 'funcionarios' | 'simulados';
@@ -336,12 +336,13 @@ function SimpleTab({
 /* ═══════════════════════════════════════════════════════════════
    PastosTab — reutiliza DataContext
 ═══════════════════════════════════════════════════════════════ */
-interface PastureForm { nome: string; area: number; retiro_id: string; forragem: string; qualidade_forragem: string; observacoes: string; }
+interface PastureForm { nome: string; area: number; retiro_id: string; forragem: string; qualidade_forragem: string; observacoes: string; suplemento_sugerido: string; }
 
-function PastureEditRow({ pasture, retiros, forragens, onSave, onCancel }: {
-  pasture: { id: string; nome: string; area?: number; retiro_id?: string; forragem?: string; qualidade_forragem?: string; observacoes?: string };
+function PastureEditRow({ pasture, retiros, forragens, suppNomes, onSave, onCancel }: {
+  pasture: { id: string; nome: string; area?: number; retiro_id?: string; forragem?: string; qualidade_forragem?: string; observacoes?: string; suplemento_sugerido?: string };
   retiros: SimpleItem[];
   forragens: string[];
+  suppNomes: string[];
   onSave: (data: PastureForm) => void; onCancel: () => void;
 }) {
   const { register, handleSubmit } = useForm<PastureForm>({
@@ -352,6 +353,7 @@ function PastureEditRow({ pasture, retiros, forragens, onSave, onCancel }: {
       forragem: pasture.forragem || '',
       qualidade_forragem: pasture.qualidade_forragem || '',
       observacoes: pasture.observacoes || '',
+      suplemento_sugerido: pasture.suplemento_sugerido || '',
     },
   });
   return (
@@ -376,6 +378,12 @@ function PastureEditRow({ pasture, retiros, forragens, onSave, onCancel }: {
           {QUALIDADES_FORRAGEM.map(q => <option key={q} value={q}>{q}</option>)}
         </select>
       </td>
+      <td className="px-4 py-2">
+        <select {...register('suplemento_sugerido')} className={inputClass}>
+          <option value="">— Nenhum —</option>
+          {suppNomes.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </td>
       <td className="px-4 py-2"><input {...upperReg(register('observacoes'))} className={inputClass} placeholder="Observações" /></td>
       <td className="px-4 py-2"><SaveCancelBtns onSave={handleSubmit(onSave)} onCancel={onCancel} /></td>
     </tr>
@@ -391,6 +399,7 @@ function PastosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onReque
   const [filterText, setFilterText] = useState('');
   const [filterRetiro, setFilterRetiro] = useState('');
   const [dbForragens, setDbForragens] = useState<string[]>([]);
+  const [suppNomes, setSuppNomes] = useState<string[]>([]);
   const { register, handleSubmit, reset, formState: { errors } } = useForm<PastureForm>();
   const { activeFarmId } = useData();
 
@@ -415,6 +424,10 @@ function PastosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onReque
           setDbForragens(names);
         }
       });
+    supabaseAdmin.from('supplement_types').select('nome').eq('farm_id', activeFarmId).order('nome')
+      .then(({ data }) => {
+        if (data) setSuppNomes((data as {nome:string}[]).map(s => s.nome));
+      });
   }, [activeFarmId]);
   const allForragens = [...FORRAGENS, ...dbForragens];
 
@@ -431,11 +444,12 @@ function PastosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onReque
     if (dup) { toast.error('Já existe um pasto com este nome.'); return; }
     addPasture({
       nome: data.nome,
-      area: data.area > 0 ? data.area : undefined,   // NaN/0 vira undefined
+      area: data.area > 0 ? data.area : undefined,
       retiro_id: data.retiro_id || undefined,
       forragem: data.forragem || undefined,
       qualidade_forragem: data.qualidade_forragem || undefined,
       observacoes: data.observacoes,
+      suplemento_sugerido: data.suplemento_sugerido || undefined,
     });
     toast.success('Pasto adicionado!', { description: data.nome });
     reset(); setShowAddForm(false);
@@ -443,12 +457,13 @@ function PastosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onReque
   async function onEditSave(id: string, data: PastureForm) {
     try {
       await updatePasture(id, {
-        nome:               data.nome,
-        area:               data.area > 0 ? data.area : undefined,
-        retiro_id:          data.retiro_id || undefined,
-        forragem:           data.forragem || undefined,
-        qualidade_forragem: data.qualidade_forragem || undefined,
-        observacoes:        data.observacoes,
+        nome:                data.nome,
+        area:                data.area > 0 ? data.area : undefined,
+        retiro_id:           data.retiro_id || undefined,
+        forragem:            data.forragem || undefined,
+        qualidade_forragem:  data.qualidade_forragem || undefined,
+        observacoes:         data.observacoes,
+        suplemento_sugerido: data.suplemento_sugerido || undefined,
       });
       toast.success('Pasto atualizado!'); setEditingId(null);
     } catch (err) {
@@ -570,6 +585,13 @@ function PastosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onReque
                 </select>
               </div>
               <div>
+                <label className={labelClass}>Suplemento Sugerido</label>
+                <select {...register('suplemento_sugerido')} className={`${inputClass} cursor-pointer`}>
+                  <option value="">— Nenhum —</option>
+                  {suppNomes.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className={labelClass}>Observações</label>
                 <input placeholder="Ex.: Info adicional" {...upperReg(register('observacoes'))} className={inputClass} />
               </div>
@@ -597,7 +619,7 @@ function PastosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onReque
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      {['Nome do Pasto', 'Área (ha)', 'Retiro', 'Forragem', 'Qualidade', 'Observações', 'Ações'].map(h => (
+                      {['Nome do Pasto', 'Área (ha)', 'Retiro', 'Forragem', 'Qualidade', 'Supl. Sugerido', 'Observações', 'Ações'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -605,13 +627,13 @@ function PastosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onReque
                   <tbody className="divide-y divide-gray-100">
                     {filteredPastures.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-10 text-center text-sm text-gray-400">
+                        <td colSpan={8} className="py-10 text-center text-sm text-gray-400">
                           Nenhum pasto encontrado para "{filterText}"
                         </td>
                       </tr>
                     ) : filteredPastures.map(p =>
                       editingId === p.id ? (
-                        <PastureEditRow key={p.id} pasture={p} retiros={retiros} forragens={allForragens}
+                        <PastureEditRow key={p.id} pasture={p} retiros={retiros} forragens={allForragens} suppNomes={suppNomes}
                           onSave={d => onEditSave(p.id, d)} onCancel={() => setEditingId(null)} />
                       ) : (
                         <motion.tr key={p.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50 transition-colors">
@@ -630,6 +652,11 @@ function PastosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { onReque
                                   p.qualidade_forragem === 'BOA'   ? 'bg-teal-50 text-teal-700' :
                                   'bg-yellow-50 text-yellow-700'
                                 }`}>{p.qualidade_forragem}</span>
+                              : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {p.suplemento_sugerido
+                              ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-700">{p.suplemento_sugerido}</span>
                               : <span className="text-gray-400">—</span>}
                           </td>
                           <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{p.observacoes || '—'}</td>

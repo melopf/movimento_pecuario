@@ -226,7 +226,7 @@ export function DashboardLayout() {
             <h1 className="text-sm font-bold text-gray-800">Suplemento Control</h1>
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
               style={{ background: 'rgba(26,96,64,0.08)', color: '#1a6040', borderColor: 'rgba(26,96,64,0.18)' }}>
-              v1.25
+              v1.26
             </span>
           </div>
           <p className="text-xs mt-0.5 truncate text-gray-400">{user?.name}</p>

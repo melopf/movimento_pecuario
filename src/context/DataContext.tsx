@@ -17,6 +17,7 @@ export interface Pasture {
   retiro_id?: string;
   forragem?: string;
   qualidade_forragem?: string;
+  suplemento_sugerido?: string;
 }
 
 export type ClientInfo = Farm;
@@ -44,10 +45,11 @@ function toPasture(row: Record<string, unknown>): Pasture {
     id:                  row.id as string,
     nome:                row.nome as string,
     area:                (row.area as number) ?? undefined,
-    observacoes:         (row.observacoes as string) ?? undefined,
-    retiro_id:           (row.retiro_id as string) ?? undefined,
-    forragem:            (row.forragem as string) ?? undefined,
-    qualidade_forragem:  (row.qualidade_forragem as string) ?? undefined,
+    observacoes:          (row.observacoes as string) ?? undefined,
+    retiro_id:            (row.retiro_id as string) ?? undefined,
+    forragem:             (row.forragem as string) ?? undefined,
+    qualidade_forragem:   (row.qualidade_forragem as string) ?? undefined,
+    suplemento_sugerido:  (row.suplemento_sugerido as string) ?? undefined,
   };
 }
 
@@ -351,8 +353,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       area: (p.area != null && p.area > 0) ? p.area : null, observacoes: p.observacoes ?? null,
       retiro_id: p.retiro_id ?? null,
       // só inclui as colunas novas se tiverem valor — evita erro se SQL ainda não foi rodado
-      ...(p.forragem           ? { forragem:           p.forragem }           : {}),
-      ...(p.qualidade_forragem ? { qualidade_forragem: p.qualidade_forragem } : {}),
+      ...(p.forragem            ? { forragem:            p.forragem }            : {}),
+      ...(p.qualidade_forragem  ? { qualidade_forragem:  p.qualidade_forragem }  : {}),
+      ...(p.suplemento_sugerido ? { suplemento_sugerido: p.suplemento_sugerido } : {}),
     }).select().single().then(({ data, error }) => {
       if (data) setPastures(prev => prev.map(x => x.id === tempId ? toPasture(data) : x));
       if (error) {
@@ -393,8 +396,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Tenta salvar com forragem + qualidade; se falhar (coluna não existe), salva sem elas
     const payloadFull = {
       ...payload,
-      ...(patch.forragem           !== undefined && { forragem:           patch.forragem ?? null }),
-      ...(patch.qualidade_forragem !== undefined && { qualidade_forragem: patch.qualidade_forragem ?? null }),
+      ...(patch.forragem            !== undefined && { forragem:            patch.forragem ?? null }),
+      ...(patch.qualidade_forragem  !== undefined && { qualidade_forragem:  patch.qualidade_forragem ?? null }),
+      ...(patch.suplemento_sugerido !== undefined && { suplemento_sugerido: patch.suplemento_sugerido ?? null }),
     };
 
     const { error } = await supabaseAdmin.from('pastures').update(payloadFull).eq('id', id);

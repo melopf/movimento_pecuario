@@ -411,42 +411,18 @@ function LotesTab({
                   })()}
                 </div>
 
-                {/* META % */}
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-widest text-blue-400 whitespace-nowrap">% Meta</p>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="100"
-                        value={metaDraft[a.id] ?? (a.meta_percentagem != null ? String(a.meta_percentagem).replace('.', ',') : '')}
-                        placeholder="0,0"
-                        onChange={e => setMetaDraft(d => ({ ...d, [a.id]: e.target.value }))}
-                        onBlur={async () => {
-                          const raw = metaDraft[a.id];
-                          if (raw === undefined) return;
-                          const val = raw === '' ? null : parseFloat(raw.replace(',', '.'));
-                          if (val !== null && isNaN(val)) return;
-                          await onMetaSave(a.id, val);
-                          setMetaDraft(d => { const n = { ...d }; delete n[a.id]; return n; });
-                        }}
-                        className="w-14 h-6 px-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 text-center"
-                      />
-                      <span className="text-[10px] text-blue-400 font-medium">%</span>
-                    </div>
-                  </div>
-                  {a.peso_medio != null && a.meta_percentagem != null && (
-                    <div className="flex-shrink-0 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1 text-right">
-                      <p className="text-[9px] text-blue-400 font-semibold uppercase tracking-wide leading-none mb-0.5">META/cab/dia</p>
+                {/* META/CAB/DIA badge */}
+                {a.peso_medio != null && a.meta_percentagem != null && (
+                  <div className="mt-2">
+                    <div className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                      <p className="text-[9px] text-blue-400 font-semibold uppercase tracking-wide leading-none">META/CAB/DIA</p>
                       <p className="text-sm font-bold text-blue-700 leading-none">
                         {(a.peso_medio * a.meta_percentagem / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-[10px] font-normal text-blue-400"> kg</span>
+                        <span className="text-[10px] font-normal text-blue-400"> KG</span>
                       </p>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Bezerros */}
                 {hasBez && (
