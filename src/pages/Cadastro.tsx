@@ -219,7 +219,7 @@ export function Cadastro() {
             </Link>
           </p>
 
-          <p className="text-center text-xs text-gray-400 mt-6">v1.27a © 2025 Suplemento Control</p>
+          <p className="text-center text-xs text-gray-400 mt-6">v1.27b © 2025 Suplemento Control</p>
         </div>
       </div>
     </div>
