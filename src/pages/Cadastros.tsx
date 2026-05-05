@@ -1470,9 +1470,10 @@ function SuplementosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { on
    SimuladosTab — Admin Only
 ═══════════════════════════════════════════════════════════════ */
 interface SimuladorParam {
-  epoca: string; categoria: string; g_100kg_pv: number;
+  id?: string; epoca: string; categoria: string; g_100kg_pv: number;
   gmd_regular: number; gmd_bom: number; gmd_otimo: number;
 }
+interface SuppTypeSimple { id: string; nome: string; categoria_simulador?: string; }
 
 const EPOCA_STYLE: Record<string, { label: string; bg: string; color: string }> = {
   seca:      { label: 'Seca (Jul–Out)',       bg: '#fef3c7', color: '#b45309' },
@@ -1600,15 +1601,21 @@ function CatProdutoEditForm({ item, onSaved, onCancel }: {
   );
 }
 
-function CatProdutoPanel({ categoria, farmId, items, onItemsChange, canEdit }: {
+function CatProdutoPanel({ categoria, farmId, items, suppTypes, onItemsChange, onSuppTypeUpdate, canEdit }: {
   categoria: string; farmId: string;
   items: SupplementSimulated[];
+  suppTypes: SuppTypeSimple[];
   onItemsChange: (updated: SupplementSimulated[]) => void;
+  onSuppTypeUpdate: (updated: SuppTypeSimple) => void;
   canEdit: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [showLink, setShowLink] = useState(false);
+  const [linkSuppId, setLinkSuppId] = useState('');
   const catItems = items.filter(i => i.categoria === categoria);
+  const linkedSupps = suppTypes.filter(s => s.categoria_simulador === categoria);
+  const available = suppTypes.filter(s => !s.categoria_simulador || s.categoria_simulador !== categoria);
 
   async function handleDelete(id: string, nome: string) {
     if (!window.confirm(`Remover "${nome}"?`)) return;
@@ -1618,56 +1625,113 @@ function CatProdutoPanel({ categoria, farmId, items, onItemsChange, canEdit }: {
     onItemsChange([..._simuladosCache]);
     toast.success('Removido!');
   }
+  async function handleLink() {
+    if (!linkSuppId) return;
+    const { error } = await supabaseAdmin.from('supplement_types').update({ categoria_simulador: categoria }).eq('id', linkSuppId);
+    if (error) { toast.error('Erro ao vincular.'); return; }
+    onSuppTypeUpdate({ id: linkSuppId, nome: suppTypes.find(s => s.id === linkSuppId)?.nome ?? '', categoria_simulador: categoria });
+    setShowLink(false); setLinkSuppId('');
+    toast.success('Suplemento vinculado!');
+  }
+  async function handleUnlink(suppId: string, nome: string) {
+    const { error } = await supabaseAdmin.from('supplement_types').update({ categoria_simulador: null }).eq('id', suppId);
+    if (error) { toast.error('Erro ao desvincular.'); return; }
+    onSuppTypeUpdate({ id: suppId, nome, categoria_simulador: undefined });
+    toast.success('Desvinculado.');
+  }
 
   return (
     <div className="px-4 py-3 border-t" style={{ background: 'rgba(26,96,64,0.03)', borderColor: 'rgba(26,96,64,0.10)' }}>
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#1a6040' }}>
-          Produtos — {categoria}
-        </p>
-        {canEdit && !showAdd && (
-          <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors"
-            style={{ background: '#1a6040' }}>
-            <Plus className="w-3.5 h-3.5" /> Adicionar Produto
-          </button>
-        )}
-      </div>
-      {showAdd && canEdit && (
-        <CatProdutoAddForm
-          categoria={categoria} farmId={farmId}
-          onAdded={row => { _simuladosCache = [..._simuladosCache, row].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')); onItemsChange([..._simuladosCache]); setShowAdd(false); }}
-          onCancel={() => setShowAdd(false)}
-        />
-      )}
-      {catItems.length === 0 && !showAdd ? (
-        <p className="text-xs text-gray-400 py-1">Nenhum produto nesta categoria.</p>
-      ) : (
-        <div className="space-y-1">
-          {catItems.map(item =>
-            editId === item.id ? (
-              <CatProdutoEditForm key={item.id} item={item}
-                onSaved={updated => { _simuladosCache = _simuladosCache.map(s => s.id === updated.id ? updated : s); onItemsChange([..._simuladosCache]); setEditId(null); }}
-                onCancel={() => setEditId(null)}
-              />
-            ) : (
-              <div key={item.id} className="flex items-center gap-3 rounded-lg px-3 py-2 bg-white border border-gray-100 text-sm">
-                <span className="font-semibold text-gray-900 flex-1">{item.nome}</span>
-                <span className="text-xs uppercase text-gray-500">{item.unidade}</span>
-                <span className="text-xs font-medium text-gray-700 min-w-[110px]">{item.valor_kg ? `R$ ${item.valor_kg.toFixed(3)}/kg` : '—'}</span>
-                <span className="text-xs text-gray-500">{item.peso ? `${item.peso} kg/saco` : ''}</span>
-                {item.observacoes_tecnicas && <span className="text-xs text-gray-400 italic truncate max-w-[200px]">{item.observacoes_tecnicas}</span>}
-                {canEdit && (
-                  <div className="flex gap-1">
-                    <button onClick={() => setEditId(item.id)} className="p-1.5 rounded text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => handleDelete(item.id, item.nome)} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                )}
-              </div>
-            )
+      {/* ── Suplementos da fazenda vinculados (B-03) ── */}
+      <div className="mb-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-teal-700">Suplementos Vinculados</p>
+          {canEdit && !showLink && available.length > 0 && (
+            <button onClick={() => setShowLink(true)}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold border border-teal-300 text-teal-700 hover:bg-teal-50 transition-colors">
+              <Plus className="w-3 h-3" /> Vincular
+            </button>
           )}
         </div>
-      )}
+        {showLink && (
+          <div className="flex items-center gap-2 mb-2">
+            <select value={linkSuppId} onChange={e => setLinkSuppId(e.target.value)}
+              className="flex-1 h-8 px-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500">
+              <option value="">— Selecione o suplemento —</option>
+              {available.map(s => <option key={s.id} value={s.id}>{s.nome}{s.categoria_simulador ? ` (atual: ${s.categoria_simulador})` : ''}</option>)}
+            </select>
+            <button onClick={handleLink} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: '#1a6040' }}>
+              <Save className="w-3 h-3" /> Vincular
+            </button>
+            <button onClick={() => { setShowLink(false); setLinkSuppId(''); }} className="p-1.5 rounded border border-gray-300 text-gray-500 hover:bg-gray-50"><X className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
+        {linkedSupps.length === 0 ? (
+          <p className="text-xs text-gray-400 py-0.5">Nenhum suplemento vinculado a esta categoria.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {linkedSupps.map(s => (
+              <div key={s.id} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-50 border border-teal-200 text-teal-800">
+                {s.nome}
+                {canEdit && (
+                  <button onClick={() => handleUnlink(s.id, s.nome)} className="ml-1 text-teal-400 hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Produtos do simulador ── */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#1a6040' }}>
+            Produtos — {categoria}
+          </p>
+          {canEdit && !showAdd && (
+            <button onClick={() => setShowAdd(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors"
+              style={{ background: '#1a6040' }}>
+              <Plus className="w-3.5 h-3.5" /> Adicionar Produto
+            </button>
+          )}
+        </div>
+        {showAdd && canEdit && (
+          <CatProdutoAddForm
+            categoria={categoria} farmId={farmId}
+            onAdded={row => { _simuladosCache = [..._simuladosCache, row].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')); onItemsChange([..._simuladosCache]); setShowAdd(false); }}
+            onCancel={() => setShowAdd(false)}
+          />
+        )}
+        {catItems.length === 0 && !showAdd ? (
+          <p className="text-xs text-gray-400 py-1">Nenhum produto nesta categoria.</p>
+        ) : (
+          <div className="space-y-1">
+            {catItems.map(item =>
+              editId === item.id ? (
+                <CatProdutoEditForm key={item.id} item={item}
+                  onSaved={updated => { _simuladosCache = _simuladosCache.map(s => s.id === updated.id ? updated : s); onItemsChange([..._simuladosCache]); setEditId(null); }}
+                  onCancel={() => setEditId(null)}
+                />
+              ) : (
+                <div key={item.id} className="flex items-center gap-3 rounded-lg px-3 py-2 bg-white border border-gray-100 text-sm">
+                  <span className="font-semibold text-gray-900 flex-1">{item.nome}</span>
+                  <span className="text-xs uppercase text-gray-500">{item.unidade}</span>
+                  <span className="text-xs font-medium text-gray-700 min-w-[110px]">{item.valor_kg ? `R$ ${item.valor_kg.toFixed(3)}/kg` : '—'}</span>
+                  <span className="text-xs text-gray-500">{item.peso ? `${item.peso} kg/saco` : ''}</span>
+                  {item.observacoes_tecnicas && <span className="text-xs text-gray-400 italic truncate max-w-[200px]">{item.observacoes_tecnicas}</span>}
+                  {canEdit && (
+                    <div className="flex gap-1">
+                      <button onClick={() => setEditId(item.id)} className="p-1.5 rounded text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDelete(item.id, item.nome)} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1678,6 +1742,21 @@ function SimuladosTab({ canEdit = true }: { onRequestDelete?: (t: DeleteTarget) 
   const [loading, setLoading] = useState(false);
   const [params, setParams] = useState<SimuladorParam[]>(_paramsCache);
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
+  const [suppTypes, setSuppTypes] = useState<SuppTypeSimple[]>([]);
+
+  // B-02: inline edit state
+  const [editingRow, setEditingRow] = useState<{ epoca: string; categoria: string } | null>(null);
+  const [editDraft, setEditDraft] = useState({ g_100kg_pv: '', gmd_regular: '', gmd_bom: '', gmd_otimo: '' });
+
+  // B-02: new category form
+  const [showNewCat, setShowNewCat] = useState(false);
+  const [newCatNome, setNewCatNome] = useState('');
+  const [newCatEpocas, setNewCatEpocas] = useState({ seca: true, transicao: true, aguas: true });
+  const [newCatVals, setNewCatVals] = useState({
+    seca:      { g: '', regular: '', bom: '', otimo: '' },
+    transicao: { g: '', regular: '', bom: '', otimo: '' },
+    aguas:     { g: '', regular: '', bom: '', otimo: '' },
+  });
 
   useEffect(() => {
     if (!activeFarmId) return;
@@ -1685,18 +1764,75 @@ function SimuladosTab({ canEdit = true }: { onRequestDelete?: (t: DeleteTarget) 
     setLoading(true);
     (async () => {
       try {
-        const [{ data: supls }, { data: prms }] = await Promise.all([
+        const [{ data: supls }, { data: prms }, { data: stypes }] = await Promise.all([
           supabaseAdmin.from('supplement_simulated').select('*').eq('farm_id', activeFarmId).order('nome'),
           _paramsCache.length > 0 ? Promise.resolve({ data: _paramsCache }) : supabaseAdmin.from('simulador_parametros').select('*'),
+          supabaseAdmin.from('supplement_types').select('id, nome, categoria_simulador').eq('farm_id', activeFarmId).order('nome'),
         ]);
         if (mounted) {
           _simuladosCache = supls ?? []; setItems([..._simuladosCache]);
           if (prms && prms.length > 0) { _paramsCache = prms as SimuladorParam[]; setParams([..._paramsCache]); }
+          if (stypes) setSuppTypes(stypes as SuppTypeSimple[]);
         }
       } finally { if (mounted) setLoading(false); }
     })();
     return () => { mounted = false; };
   }, [activeFarmId]);
+
+  /* B-02: edição inline de parâmetro */
+  function startEdit(p: SimuladorParam) {
+    setEditingRow({ epoca: p.epoca, categoria: p.categoria });
+    setEditDraft({ g_100kg_pv: String(p.g_100kg_pv), gmd_regular: String(p.gmd_regular), gmd_bom: String(p.gmd_bom), gmd_otimo: String(p.gmd_otimo) });
+  }
+  async function saveEdit() {
+    if (!editingRow) return;
+    const payload = {
+      g_100kg_pv:  parseFloat(editDraft.g_100kg_pv.replace(',', '.')),
+      gmd_regular: parseFloat(editDraft.gmd_regular.replace(',', '.')),
+      gmd_bom:     parseFloat(editDraft.gmd_bom.replace(',', '.')),
+      gmd_otimo:   parseFloat(editDraft.gmd_otimo.replace(',', '.')),
+    };
+    if (Object.values(payload).some(isNaN)) { toast.error('Preencha todos os campos com números válidos.'); return; }
+    const { error } = await supabaseAdmin.from('simulador_parametros')
+      .update(payload).eq('epoca', editingRow.epoca).eq('categoria', editingRow.categoria);
+    if (error) { toast.error('Erro ao salvar.'); return; }
+    setParams(prev => prev.map(p =>
+      p.epoca === editingRow.epoca && p.categoria === editingRow.categoria ? { ...p, ...payload } : p
+    ));
+    _paramsCache = _paramsCache.map(p =>
+      p.epoca === editingRow.epoca && p.categoria === editingRow.categoria ? { ...p, ...payload } : p
+    );
+    setEditingRow(null);
+    toast.success('Parâmetro atualizado!');
+  }
+
+  /* B-02: nova categoria */
+  async function handleNewCat() {
+    const nome = newCatNome.trim().toUpperCase();
+    if (!nome) { toast.error('Informe o nome da categoria.'); return; }
+    const epocasSel = Object.entries(newCatEpocas).filter(([, v]) => v).map(([k]) => k);
+    if (epocasSel.length === 0) { toast.error('Selecione ao menos uma época.'); return; }
+    const rows = epocasSel.map(ep => {
+      const v = newCatVals[ep as keyof typeof newCatVals];
+      return {
+        epoca: ep, categoria: nome,
+        g_100kg_pv:  parseFloat(v.g.replace(',', '.')) || 0,
+        gmd_regular: parseFloat(v.regular.replace(',', '.')) || 0,
+        gmd_bom:     parseFloat(v.bom.replace(',', '.')) || 0,
+        gmd_otimo:   parseFloat(v.otimo.replace(',', '.')) || 0,
+      };
+    });
+    const { data, error } = await supabaseAdmin.from('simulador_parametros').insert(rows).select();
+    if (error) { toast.error('Erro ao criar categoria.'); return; }
+    const inserted = (data ?? []) as SimuladorParam[];
+    _paramsCache = [..._paramsCache, ...inserted];
+    setParams([..._paramsCache]);
+    setShowNewCat(false);
+    setNewCatNome('');
+    setNewCatEpocas({ seca: true, transicao: true, aguas: true });
+    setNewCatVals({ seca: { g:'', regular:'', bom:'', otimo:'' }, transicao: { g:'', regular:'', bom:'', otimo:'' }, aguas: { g:'', regular:'', bom:'', otimo:'' } });
+    toast.success(`Categoria "${nome}" criada em ${epocasSel.length} época(s)!`);
+  }
 
   const EPOCAS_ORDER = [
     { key: 'seca',      label: 'SECA',      periodo: 'Jul · Ago · Set · Out' },
@@ -1706,13 +1842,72 @@ function SimuladosTab({ canEdit = true }: { onRequestDelete?: (t: DeleteTarget) 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide"
-          style={{ background: 'rgba(26,96,64,0.10)', color: '#1a6040', border: '1px solid rgba(26,96,64,0.2)' }}>
-          <FlaskConical className="w-3 h-3" /> Admin Only
-        </span>
-        <p className="text-xs text-gray-400">Clique em uma categoria para gerenciar os produtos vinculados</p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide"
+            style={{ background: 'rgba(26,96,64,0.10)', color: '#1a6040', border: '1px solid rgba(26,96,64,0.2)' }}>
+            <FlaskConical className="w-3 h-3" /> Admin Only
+          </span>
+          <p className="text-xs text-gray-400">Clique em uma categoria para gerenciar os produtos vinculados</p>
+        </div>
+        {canEdit && (
+          <button onClick={() => setShowNewCat(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors"
+            style={{ background: '#1a6040' }}>
+            <Plus className="w-3.5 h-3.5" /> Nova Categoria
+          </button>
+        )}
       </div>
+
+      {/* ── Form Nova Categoria ── */}
+      {showNewCat && canEdit && (
+        <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <label className={labelClass}>Nome da Categoria *</label>
+              <input value={newCatNome} onChange={e => setNewCatNome(e.target.value.toUpperCase())}
+                className={inputClass} placeholder="Ex.: PROTEICO 0,1% PV" />
+            </div>
+            <div>
+              <label className={labelClass}>Aplicar nas Épocas</label>
+              <div className="flex gap-3 mt-1">
+                {(['seca','transicao','aguas'] as const).map(ep => (
+                  <label key={ep} className="flex items-center gap-1 text-xs font-medium text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={newCatEpocas[ep]}
+                      onChange={e => setNewCatEpocas(v => ({ ...v, [ep]: e.target.checked }))}
+                      className="rounded border-gray-300 text-teal-600" />
+                    {ep === 'seca' ? 'Seca' : ep === 'transicao' ? 'Transição' : 'Águas'}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-3">
+            {(['seca','transicao','aguas'] as const).filter(ep => newCatEpocas[ep]).map(ep => {
+              const es = EPOCA_STYLE[ep];
+              return (
+                <div key={ep} className="rounded-lg border p-3 grid grid-cols-4 gap-2" style={{ borderColor: es.color + '44', background: es.bg + '80' }}>
+                  <div className="col-span-4 mb-1"><span className="text-xs font-bold uppercase" style={{ color: es.color }}>{es.label}</span></div>
+                  {([['g', 'Consumo (g/100kg PV)'],['regular','GMD Regular'],['bom','GMD Boa'],['otimo','GMD Ótimo']] as const).map(([field, lbl]) => (
+                    <div key={field}>
+                      <label className={labelClass}>{lbl}</label>
+                      <input type="number" step="0.001" value={newCatVals[ep][field]}
+                        onChange={e => setNewCatVals(v => ({ ...v, [ep]: { ...v[ep], [field]: e.target.value } }))}
+                        className={inputClass} placeholder="0" />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleNewCat} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white" style={{ background: '#1a6040' }}>
+              <Save className="w-3.5 h-3.5" /> Criar Categoria
+            </button>
+            <button onClick={() => setShowNewCat(false)} className="px-4 py-2 rounded-lg text-xs border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</button>
+          </div>
+        </div>
+      )}
 
       {loading ? <SkeletonTable rows={6} cols={6} /> : params.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">Carregando parâmetros técnicos...</p>
@@ -1736,15 +1931,34 @@ function SimuladosTab({ canEdit = true }: { onRequestDelete?: (t: DeleteTarget) 
                       <th className="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-500">Regular<br /><span className="font-normal normal-case text-gray-400">GMD kg/dia</span></th>
                       <th className="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: '#1d4ed8' }}>Boa<br /><span className="font-normal normal-case text-gray-400">GMD kg/dia</span></th>
                       <th className="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: '#1a6040' }}>Ótima<br /><span className="font-normal normal-case text-gray-400">GMD kg/dia</span></th>
+                      {canEdit && <th className="w-16 px-2 py-2"></th>}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((p, i) => {
                       const catKey = `${key}:${p.categoria}`;
                       const isExpanded = expandedCat === catKey;
+                      const isEditing = editingRow?.epoca === key && editingRow?.categoria === p.categoria;
                       const prodCount = items.filter(it => it.categoria === p.categoria).length;
+                      const linkedCount = suppTypes.filter(s => s.categoria_simulador === p.categoria).length;
                       return (
                         <Fragment key={p.categoria}>
+                          {isEditing ? (
+                            <tr className="border-t bg-yellow-50" style={{ borderColor: '#f3f4f6' }}>
+                              <td className="px-3 py-2"></td>
+                              <td className="px-4 py-2">
+                                <span className="inline-block px-2 py-0.5 rounded-md text-xs font-semibold" style={{ background: 'rgba(26,96,64,0.10)', color: '#1a6040' }}>{p.categoria}</span>
+                              </td>
+                              <td className="px-2 py-2"><input type="number" step="0.1" value={editDraft.g_100kg_pv} onChange={e => setEditDraft(d => ({ ...d, g_100kg_pv: e.target.value }))} className="w-20 h-7 px-1.5 text-xs border border-yellow-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-yellow-400" /></td>
+                              <td className="px-2 py-2"><input type="number" step="0.001" value={editDraft.gmd_regular} onChange={e => setEditDraft(d => ({ ...d, gmd_regular: e.target.value }))} className="w-20 h-7 px-1.5 text-xs border border-yellow-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-yellow-400" /></td>
+                              <td className="px-2 py-2"><input type="number" step="0.001" value={editDraft.gmd_bom} onChange={e => setEditDraft(d => ({ ...d, gmd_bom: e.target.value }))} className="w-20 h-7 px-1.5 text-xs border border-yellow-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-yellow-400" /></td>
+                              <td className="px-2 py-2"><input type="number" step="0.001" value={editDraft.gmd_otimo} onChange={e => setEditDraft(d => ({ ...d, gmd_otimo: e.target.value }))} className="w-20 h-7 px-1.5 text-xs border border-yellow-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-yellow-400" /></td>
+                              <td className="px-2 py-2"><div className="flex gap-1">
+                                <button onClick={saveEdit} className="p-1.5 rounded text-white hover:opacity-80" style={{ background: '#1a6040' }}><Save className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setEditingRow(null)} className="p-1.5 rounded border border-gray-300 text-gray-500 hover:bg-gray-100"><X className="w-3.5 h-3.5" /></button>
+                              </div></td>
+                            </tr>
+                          ) : (
                           <tr
                             className={`border-t cursor-pointer select-none transition-colors ${isExpanded ? '' : (i % 2 === 0 ? 'bg-white hover:bg-teal-50/20' : 'bg-gray-50/50 hover:bg-teal-50/20')}`}
                             style={{ borderColor: '#f3f4f6', ...(isExpanded ? { background: 'rgba(26,96,64,0.06)' } : {}) }}
@@ -1756,9 +1970,8 @@ function SimuladosTab({ canEdit = true }: { onRequestDelete?: (t: DeleteTarget) 
                             <td className="px-4 py-2.5">
                               <div className="flex items-center gap-2">
                                 <span className="inline-block px-2 py-0.5 rounded-md text-xs font-semibold" style={{ background: 'rgba(26,96,64,0.10)', color: '#1a6040' }}>{p.categoria}</span>
-                                {prodCount > 0 && (
-                                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: '#1a6040' }}>{prodCount}</span>
-                                )}
+                                {prodCount > 0 && <span className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: '#1a6040' }}>{prodCount}</span>}
+                                {linkedCount > 0 && <span className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-700">{linkedCount} supl.</span>}
                               </div>
                             </td>
                             <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#1a6040' }}>{p.g_100kg_pv}g</td>
@@ -1767,7 +1980,11 @@ function SimuladosTab({ canEdit = true }: { onRequestDelete?: (t: DeleteTarget) 
                             </td>
                             <td className="px-4 py-2.5 text-center font-semibold" style={{ color: '#1d4ed8' }}>{p.gmd_bom.toFixed(3)}</td>
                             <td className="px-4 py-2.5 text-center font-semibold" style={{ color: '#1a6040' }}>{p.gmd_otimo.toFixed(3)}</td>
+                            {canEdit && <td className="px-2 py-2.5" onClick={e => { e.stopPropagation(); startEdit(p); }}>
+                              <button className="p-1.5 rounded text-gray-300 hover:text-teal-600 hover:bg-teal-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                            </td>}
                           </tr>
+                          )}
                           {isExpanded && activeFarmId && (
                             <tr>
                               <td colSpan={6} className="p-0">
@@ -1775,7 +1992,9 @@ function SimuladosTab({ canEdit = true }: { onRequestDelete?: (t: DeleteTarget) 
                                   categoria={p.categoria}
                                   farmId={activeFarmId}
                                   items={items}
+                                  suppTypes={suppTypes}
                                   onItemsChange={newItems => { _simuladosCache = newItems; setItems([...newItems]); }}
+                                  onSuppTypeUpdate={updated => setSuppTypes(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s))}
                                   canEdit={canEdit}
                                 />
                               </td>
