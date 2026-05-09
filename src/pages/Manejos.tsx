@@ -320,12 +320,9 @@ function LotesTab({
               </div>
               {/* Linha 2: Meta Acum. + valor calculado */}
               {meta != null && (
-                <div className="flex items-center gap-1">
-                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isAuto ? 'text-teal-400' : 'text-blue-400'}`}>Meta Acum.</span>
-                  <span className={`text-xs font-bold ${isAuto ? 'text-teal-700' : 'text-blue-700'}`}>
-                    {meta.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg
-                  </span>
-                </div>
+                <span className={`text-xs font-bold ${isAuto ? 'text-teal-700' : 'text-blue-700'}`}>
+                  %={meta.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} KG
+                </span>
               )}
             </div>
           </td>
