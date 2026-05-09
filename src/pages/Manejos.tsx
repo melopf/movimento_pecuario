@@ -319,7 +319,7 @@ function LotesTab({
               />
               <span className={`text-[10px] ${isAuto ? 'text-teal-400' : 'text-blue-400'}`}>%</span>
               {meta != null && (
-                <span className={`text-xs font-bold ml-0.5 ${isAuto ? 'text-teal-700' : 'text-blue-700'}`}>
+                <span className={`text-xs font-bold whitespace-nowrap ${isAuto ? 'text-teal-700' : 'text-blue-700'}`}>
                   ={meta.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg
                 </span>
               )}
