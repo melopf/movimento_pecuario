@@ -91,7 +91,7 @@ function LotesTab({
 }: {
   animals: Animal[]; pastures: Pasture[]; categories: AnimalCategory[];
   onReload: () => void; farmName: string; canEdit?: boolean;
-  suppTypes?: Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null }>;
+  suppTypes?: Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null; categoria_simulador: string | null }>;
   entries?: DataEntry[];
   ganhoAcumMap?: Record<string, { ganho: number; data: string; confirmado: boolean }>;
 }) {
@@ -158,6 +158,26 @@ function LotesTab({
       if (e.data !== latestByPasto[e.pasto]) continue;
       const gmd = suppGmdByNome[e.tipo];
       if (gmd && gmd > 0) result[e.pasto] = gmd;
+    }
+    return result;
+  }, [suppTypes, entries]);
+
+  // Mapa: pasto_nome → true se o suplemento atual é Creep (ração só para bezerros)
+  const pastoIsCreepMap = useMemo(() => {
+    const suppIsCreep: Record<string, boolean> = {};
+    for (const s of suppTypes) {
+      suppIsCreep[s.nome] = s.categoria_simulador === 'Ração Creep' || s.nome.toLowerCase().includes('creep');
+    }
+    const latestByPasto: Record<string, string> = {};
+    for (const e of entries) {
+      if (!e.pasto || !e.data || !e.tipo) continue;
+      if (!latestByPasto[e.pasto] || e.data > latestByPasto[e.pasto]) latestByPasto[e.pasto] = e.data;
+    }
+    const result: Record<string, boolean> = {};
+    for (const e of entries) {
+      if (!e.pasto || !e.data || !e.tipo) continue;
+      if (e.data !== latestByPasto[e.pasto]) continue;
+      if (suppIsCreep[e.tipo]) result[e.pasto] = true;
     }
     return result;
   }, [suppTypes, entries]);
@@ -285,6 +305,10 @@ function LotesTab({
     const pastoNome    = a.pasto_id ? (pastoMap[a.pasto_id] ?? '') : '';
     const pastoMetaPct = pastoNomeMetaMap[pastoNome] ?? null;
 
+    // Creep: GMD do suplemento é exclusivo dos bezerros
+    const isCreepPastoRow = pastoIsCreepMap[pastoNome] ?? false;
+    const creepGmd = isCreepPastoRow ? (pastoGmdMap[pastoNome] ?? null) : null;
+
     // isAuto: sem valor manual E não está em modo de edição
     const isAuto    = a.meta_percentagem == null && !editMode;
     const inputLocked = isAuto; // input só é disabled quando realmente auto
@@ -376,8 +400,8 @@ function LotesTab({
                   </div>
                 );
               }
-              const pastoNomeA = a.pasto_id ? (pastoMap[a.pasto_id] ?? null) : null;
-              const effectiveGmd = a.gmd ?? (pastoNomeA ? (pastoGmdMap[pastoNomeA] ?? null) : null);
+              // Se é pasto Creep, o GMD do suplemento é só para bezerros — adultos usam apenas gmd individual
+              const effectiveGmd = a.gmd ?? (isCreepPastoRow ? null : (pastoGmdMap[pastoNome] ?? null));
               const gmdInput = (
                 <div className="flex items-center gap-1 mt-1">
                   <span className="text-[9px] text-gray-400 w-8">GMD:</span>
@@ -433,7 +457,20 @@ function LotesTab({
             <td className="px-4 py-1.5 text-xs font-semibold text-orange-700">{a.bezerros_quantidade!.toLocaleString('pt-BR')}</td>
             <td className="px-4 py-1.5 text-xs text-orange-600">{a.bezerros_peso_medio ? `${a.bezerros_peso_medio} kg` : '—'}</td>
             <td />
-            <td />
+            <td className="px-4 py-1.5">
+              {creepGmd && a.data_entrada ? (() => {
+                const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada).getTime()) / 86_400_000));
+                return (
+                  <div>
+                    <p className="text-xs font-bold text-orange-600">
+                      {(creepGmd * dias).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
+                    </p>
+                    <p className="text-[9px] text-orange-400">{dias}d · {creepGmd} kg/d</p>
+                    <p className="text-[8px] text-orange-300 font-medium uppercase tracking-wide">Creep</p>
+                  </div>
+                );
+              })() : null}
+            </td>
             <td className="no-print" />
           </tr>
         )}
@@ -2016,7 +2053,7 @@ export function Manejos() {
   const [tab, setTab]             = useState<Tab>('lotes');
   const [animals, setAnimals]     = useState<Animal[]>([]);
   const [categories, setCategories] = useState<AnimalCategory[]>([]);
-  const [suppTypes, setSuppTypes] = useState<Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null }>>([]);
+  const [suppTypes, setSuppTypes] = useState<Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null; categoria_simulador: string | null }>>([]);
   const [ganhoAcumMap, setGanhoAcumMap] = useState<Record<string, { ganho: number; data: string; confirmado: boolean }>>({});
   const [loading, setLoading]     = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);

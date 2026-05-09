@@ -652,12 +652,12 @@ export const manejoService = {
     }
   },
 
-  async listarSupplementTypes(farmId: string): Promise<Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null }>> {
+  async listarSupplementTypes(farmId: string): Promise<Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null; categoria_simulador: string | null }>> {
     const { data } = await supabaseAdmin
       .from('supplement_types')
-      .select('id, nome, consumo, gmd_esperado')
+      .select('id, nome, consumo, gmd_esperado, categoria_simulador')
       .eq('farm_id', farmId);
-    return (data ?? []) as Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null }>;
+    return (data ?? []) as Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null; categoria_simulador: string | null }>;
   },
 
   async atualizarGmd(animalId: string, gmd: number | null): Promise<void> {
