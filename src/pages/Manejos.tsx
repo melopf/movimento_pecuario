@@ -314,7 +314,7 @@ function LotesTab({
               <span className={`text-[10px] ${isAuto ? 'text-teal-400' : 'text-blue-400'}`}>%</span>
               {meta != null && (
                 <span className={`text-xs font-bold ml-0.5 ${isAuto ? 'text-teal-700' : 'text-blue-700'}`}>
-                  ={meta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                  ={meta.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg
                 </span>
               )}
             </div>
@@ -499,7 +499,7 @@ function LotesTab({
                       <div className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isCustom ? 'bg-blue-50 border border-blue-200' : 'bg-teal-50 border border-teal-200'}`}>
                         <p className={`text-[9px] font-semibold uppercase tracking-wide leading-none ${isCustom ? 'text-blue-400' : 'text-teal-500'}`}>META/CAB/DIA</p>
                         <p className={`text-sm font-bold leading-none ${isCustom ? 'text-blue-700' : 'text-teal-700'}`}>
-                          {(a.peso_medio * pct / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {(a.peso_medio * pct / 100).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
                           <span className={`text-[10px] font-normal ${isCustom ? 'text-blue-400' : 'text-teal-400'}`}> KG</span>
                         </p>
                       </div>
