@@ -91,7 +91,7 @@ function LotesTab({
 }: {
   animals: Animal[]; pastures: Pasture[]; categories: AnimalCategory[];
   onReload: () => void; farmName: string; canEdit?: boolean;
-  suppTypes?: Array<{ id: string; nome: string; consumo: string | null }>;
+  suppTypes?: Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null }>;
   entries?: DataEntry[];
   ganhoAcumMap?: Record<string, { ganho: number; data: string; confirmado: boolean }>;
 }) {
@@ -132,6 +132,26 @@ function LotesTab({
     () => Object.fromEntries(pastures.map(p => [p.id, p.nome])),
     [pastures]
   );
+
+  // Mapa: nome do pasto → gmd_esperado do suplemento mais recente lançado nele
+  const pastoGmdMap = useMemo(() => {
+    const suppGmdByNome: Record<string, number | null> = {};
+    for (const s of suppTypes) suppGmdByNome[s.nome] = s.gmd_esperado ?? null;
+
+    const latestByPasto: Record<string, string> = {};
+    for (const e of entries) {
+      if (!e.pasto || !e.data || !e.tipo) continue;
+      if (!latestByPasto[e.pasto] || e.data > latestByPasto[e.pasto]) latestByPasto[e.pasto] = e.data;
+    }
+    const result: Record<string, number> = {};
+    for (const e of entries) {
+      if (!e.pasto || !e.data || !e.tipo) continue;
+      if (e.data !== latestByPasto[e.pasto]) continue;
+      const gmd = suppGmdByNome[e.tipo];
+      if (gmd && gmd > 0) result[e.pasto] = gmd;
+    }
+    return result;
+  }, [suppTypes, entries]);
 
   // Mapa: nome do pasto → consumoPct (%) do suplemento mais recente lançado nele
   const pastoNomeMetaMap = useMemo(() => {
@@ -345,14 +365,16 @@ function LotesTab({
                   </div>
                 );
               }
-              if (a.gmd && a.data_entrada) {
+              const pastoNomeA = a.pasto_id ? (pastoMap[a.pasto_id] ?? null) : null;
+              const effectiveGmd = a.gmd ?? (pastoNomeA ? (pastoGmdMap[pastoNomeA] ?? null) : null);
+              if (effectiveGmd && a.data_entrada) {
                 const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada).getTime()) / 86_400_000));
                 return (
                   <div>
                     <p className="text-xs font-bold text-gray-400">
-                      {(a.gmd * dias).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
+                      {(effectiveGmd * dias).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
                     </p>
-                    <p className="text-[9px] text-gray-400">{dias}d · {a.gmd} kg/d</p>
+                    <p className="text-[9px] text-gray-400">{dias}d · {effectiveGmd} kg/d</p>
                   </div>
                 );
               }
@@ -2004,7 +2026,16 @@ export function Manejos() {
       if (!e.pasto || !e.data || !e.tipo) continue;
       if (e.data === latestByPasto[e.pasto]) pastoSuppMap[e.pasto] = e.tipo;
     }
-    manejoService.upsertHistoricoDiario(activeFarmId, animals, pMap, pastoSuppMap)
+    const suppGmdByNome: Record<string, number> = {};
+    for (const s of suppTypes) {
+      if (s.gmd_esperado) suppGmdByNome[s.nome] = s.gmd_esperado;
+    }
+    const pastoGmdMapUpsert: Record<string, number> = {};
+    for (const [pastoNome, suppNome] of Object.entries(pastoSuppMap)) {
+      const gmd = suppGmdByNome[suppNome];
+      if (gmd) pastoGmdMapUpsert[pastoNome] = gmd;
+    }
+    manejoService.upsertHistoricoDiario(activeFarmId, animals, pMap, pastoSuppMap, pastoGmdMapUpsert)
       .then(() => manejoService.buscarGanhoAcumulado(activeFarmId))
       .then(gMap => setGanhoAcumMap(gMap))
       .catch(() => {});

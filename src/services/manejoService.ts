@@ -543,13 +543,18 @@ export const manejoService = {
   async upsertHistoricoDiario(
     farmId: string,
     animals: Animal[],
-    pastoMap: Record<string, string>,    // pasto_id → pasto_nome
-    pastoSuppMap: Record<string, string> // pasto_nome → suplemento mais recente
+    pastoMap: Record<string, string>,     // pasto_id → pasto_nome
+    pastoSuppMap: Record<string, string>, // pasto_nome → suplemento mais recente
+    pastoGmdMap: Record<string, number> = {}, // pasto_nome → gmd_esperado do suplemento
   ): Promise<void> {
     const today = new Date().toISOString().split('T')[0];
-    const ativos = animals.filter(a =>
-      (a.status === 'ativo' || !a.status) && a.gmd && a.data_entrada && a.pasto_id
-    );
+    const ativos = animals.filter(a => {
+      if (!(a.status === 'ativo' || !a.status)) return false;
+      if (!a.data_entrada || !a.pasto_id) return false;
+      const pastoNome = pastoMap[a.pasto_id] ?? '';
+      const effectiveGmd = a.gmd ?? pastoGmdMap[pastoNome] ?? 0;
+      return effectiveGmd > 0;
+    });
     if (ativos.length === 0) return;
 
     // Remove registros não confirmados de hoje para recriar com dados frescos
@@ -561,10 +566,11 @@ export const manejoService = {
       .eq('confirmado', false);
 
     const records = ativos.map(a => {
-      const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada!).getTime()) / 86_400_000));
-      const ganho_acum = parseFloat((a.gmd! * dias).toFixed(3));
-      const peso_estimado = parseFloat(((a.peso_medio ?? 0) + ganho_acum).toFixed(1));
       const pastoNome = pastoMap[a.pasto_id!] ?? null;
+      const effectiveGmd = a.gmd ?? (pastoNome ? (pastoGmdMap[pastoNome] ?? 0) : 0);
+      const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada!).getTime()) / 86_400_000));
+      const ganho_acum = parseFloat((effectiveGmd * dias).toFixed(3));
+      const peso_estimado = parseFloat(((a.peso_medio ?? 0) + ganho_acum).toFixed(1));
       return {
         farm_id: farmId,
         animal_id: a.id,
@@ -572,7 +578,7 @@ export const manejoService = {
         pasto_id: a.pasto_id,
         pasto_nome: pastoNome,
         suplemento: pastoNome ? (pastoSuppMap[pastoNome] ?? null) : null,
-        gmd: a.gmd,
+        gmd: effectiveGmd,
         peso_estimado,
         ganho_acum,
         confirmado: false,
@@ -646,12 +652,12 @@ export const manejoService = {
     }
   },
 
-  async listarSupplementTypes(farmId: string): Promise<Array<{ id: string; nome: string; consumo: string | null }>> {
+  async listarSupplementTypes(farmId: string): Promise<Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null }>> {
     const { data } = await supabaseAdmin
       .from('supplement_types')
-      .select('id, nome, consumo')
+      .select('id, nome, consumo, gmd_esperado')
       .eq('farm_id', farmId);
-    return (data ?? []) as Array<{ id: string; nome: string; consumo: string | null }>;
+    return (data ?? []) as Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null }>;
   },
 
   async atualizarMetaPercentagem(animalId: string, percentagem: number | null): Promise<void> {

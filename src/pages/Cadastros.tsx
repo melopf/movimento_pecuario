@@ -41,7 +41,7 @@ function formatPhone(raw: string): string {
 /* ── Local types ── */
 interface AnimalCategory  { id: string; farm_id: string; nome: string; observacoes?: string; }
 interface Animal          { id: string; farm_id: string; nome: string; quantidade: number; raca?: string; categoria_id?: string; peso_medio?: number; sexo?: string; prenha?: boolean; bezerros_quantidade?: number; bezerros_peso_medio?: number; observacoes?: string; }
-interface SupplementType  { id: string; farm_id: string; nome: string; unidade: string; peso?: number; valor_kg?: number; consumo?: string; meta_pct?: string; observacoes?: string; categoria_simulador?: string; }
+interface SupplementType  { id: string; farm_id: string; nome: string; unidade: string; peso?: number; valor_kg?: number; consumo?: string; meta_pct?: string; observacoes?: string; categoria_simulador?: string; gmd_esperado?: number; }
 interface Employee        { id: string; farm_id: string; nome: string; funcao?: string; contato?: string; }
 
 const RACAS = ['NELORE', 'CRUZAMENTO INDUSTRIAL', 'COMPOSTO'] as const;
@@ -1157,7 +1157,7 @@ const CONSUMO_OPTIONS = [
 let _suplementosCache: SupplementType[] = [];
 const COR_OPTIONS = ['AMARELO', 'VERDE', 'AZUL', 'PRETO', 'BRANCO'];
 
-interface SupplementForm { nome: string; unidade: string; peso: number; valor_kg: number; consumo: string; observacoes: string; meta_custom: string; categoria_simulador: string; }
+interface SupplementForm { nome: string; unidade: string; peso: number; valor_kg: number; consumo: string; observacoes: string; meta_custom: string; categoria_simulador: string; gmd_esperado: number; }
 
 const CATEGORIA_SIMULADOR_OPTIONS = [
   'Mineral',
@@ -1170,7 +1170,7 @@ const CATEGORIA_SIMULADOR_OPTIONS = [
 
 function SupEditRow({ item, onSave, onCancel }: { item: SupplementType; onSave: (d: SupplementForm) => void; onCancel: () => void; }) {
   const { register, handleSubmit, watch } = useForm<SupplementForm>({
-    defaultValues: { nome: item.nome, unidade: item.unidade, peso: item.peso ?? 0, valor_kg: item.valor_kg ?? 0, consumo: item.consumo || '', observacoes: item.observacoes || '', meta_custom: item.meta_pct || '', categoria_simulador: item.categoria_simulador || '' },
+    defaultValues: { nome: item.nome, unidade: item.unidade, peso: item.peso ?? 0, valor_kg: item.valor_kg ?? 0, consumo: item.consumo || '', observacoes: item.observacoes || '', meta_custom: item.meta_pct || '', categoria_simulador: item.categoria_simulador || '', gmd_esperado: item.gmd_esperado ?? 0 },
   });
   const consumoWatch = watch('consumo');
   const metaDefault = META_CONSUMO[consumoWatch] || '';
@@ -1204,6 +1204,9 @@ function SupEditRow({ item, onSave, onCancel }: { item: SupplementType; onSave: 
       </td>
       <td className="px-4 py-2">
         <input {...register('meta_custom')} placeholder={metaDefault || '0,000%'} className={inputClass} />
+      </td>
+      <td className="px-4 py-2">
+        <input type="number" step="0.01" min="0" {...register('gmd_esperado', { valueAsNumber: true })} className={inputClass} placeholder="Ex.: 0.30" />
       </td>
       <td className="px-4 py-2">
         <select {...register('observacoes')} className={inputClass}>
@@ -1262,13 +1265,14 @@ function SuplementosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { on
       ...(data.consumo              && { consumo:              data.consumo }),
       ...(data.meta_custom          && { meta_pct:             data.meta_custom }),
       ...(data.categoria_simulador  && { categoria_simulador:  data.categoria_simulador }),
+      ...(data.gmd_esperado > 0     && { gmd_esperado:         data.gmd_esperado }),
     };
     const { data: row, error } = await supabaseAdmin.from('supplement_types').insert(payload).select().single();
     if (error) { toast.error('Erro ao adicionar.'); return; }
     _suplementosCache = [..._suplementosCache, row].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     setItems(_suplementosCache);
     toast.success('Suplemento adicionado!', { description: data.nome });
-    reset({ unidade: 'kg', peso: 0, valor_kg: 0, consumo: '', meta_custom: '', categoria_simulador: '' }); setShowAddForm(false);
+    reset({ unidade: 'kg', peso: 0, valor_kg: 0, consumo: '', meta_custom: '', categoria_simulador: '', gmd_esperado: 0 }); setShowAddForm(false);
   }
   async function onEditSave(id: string, data: SupplementForm) {
     const payload: Record<string, unknown> = {
@@ -1280,6 +1284,7 @@ function SuplementosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { on
       ...(data.consumo             ? { consumo:             data.consumo }             : { consumo:             null }),
       ...(data.meta_custom         ? { meta_pct:            data.meta_custom }         : { meta_pct:            null }),
       ...(data.categoria_simulador ? { categoria_simulador: data.categoria_simulador } : { categoria_simulador: null }),
+      gmd_esperado: data.gmd_esperado > 0 ? data.gmd_esperado : null,
     };
     const { error } = await supabaseAdmin.from('supplement_types').update(payload).eq('id', id);
     if (error) { toast.error('Erro ao atualizar.'); return; }
@@ -1293,6 +1298,7 @@ function SuplementosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { on
       meta_pct:            data.meta_custom         || undefined,
       observacoes:         data.observacoes         || undefined,
       categoria_simulador: data.categoria_simulador || undefined,
+      gmd_esperado:        data.gmd_esperado > 0 ? data.gmd_esperado : undefined,
     } : s);
     setItems(_suplementosCache);
     toast.success('Suplemento atualizado!'); setEditingId(null);
@@ -1388,6 +1394,16 @@ function SuplementosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { on
               )}
             </div>
             <div>
+              <label className={labelClass}>GMD Esperado (kg/d)</label>
+              <input
+                type="number" step="0.01" min="0"
+                placeholder="Ex.: 0.30"
+                {...register('gmd_esperado', { valueAsNumber: true })}
+                className={inputClass}
+              />
+              <p className="text-[10px] text-gray-400 mt-0.5">Ganho de peso diário esperado com este suplemento</p>
+            </div>
+            <div>
               <label className={labelClass}>Cor</label>
               <select {...register('observacoes')} className={inputClass}>
                 <option value="">— Cor —</option>
@@ -1410,7 +1426,7 @@ function SuplementosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { on
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    {['Nome', 'Unidade', 'Peso (kg)', 'Valor/KG (R$)', 'Consumo', 'Categoria', 'Meta (% PV)', 'Cor', 'Ações'].map(h => (
+                    {['Nome', 'Unidade', 'Peso (kg)', 'Valor/KG (R$)', 'Consumo', 'Categoria', 'Meta (% PV)', 'GMD Esp. (kg/d)', 'Cor', 'Ações'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -1438,6 +1454,9 @@ function SuplementosTab({ onRequestDelete, onRequestEdit, canEdit = true }: { on
                       </td>
                       <td className="px-4 py-3 text-xs font-semibold" style={{ color: '#1a6040' }}>
                         {item.meta_pct || (item.consumo ? (META_CONSUMO[item.consumo] || '—') : '—')}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold text-teal-700">
+                        {item.gmd_esperado ? `${item.gmd_esperado} kg/d` : '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{item.observacoes || '—'}</td>
                       <td className="px-4 py-3">{canEdit && <ActionBtns
