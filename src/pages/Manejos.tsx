@@ -272,56 +272,60 @@ function LotesTab({
           <td className="px-4 py-2.5 text-sm font-semibold" style={{ color: '#1a6040' }}>{a.quantidade.toLocaleString('pt-BR')}</td>
           <td className="px-4 py-2.5 text-xs text-gray-600">{a.peso_medio ? `${a.peso_medio} kg` : '—'}</td>
           <td className="px-4 py-2.5">
-            <div className="flex items-center gap-1.5">
-              {/* Toggle AUTO ↔ Manual (só aparece quando há suplemento no pasto) */}
-              {pastoMetaPct != null && (
-                <button
-                  onClick={async () => {
-                    if (!isAuto) {
-                      // Manual/editMode → AUTO: limpa meta_percentagem no banco
-                      setEditMode(false);
-                      setDraft('');
-                      await handleMetaSave(a.id, null);
-                    } else {
-                      // AUTO → Manual: entra em editMode e pré-preenche o input
-                      setEditMode(true);
-                      setDraft(String(pastoMetaPct));
-                      setTimeout(() => inputRef.current?.focus(), 30);
-                    }
+            <div className="flex flex-col gap-1">
+              {/* Linha 1: toggle + input + % */}
+              <div className="flex items-center gap-1.5">
+                {pastoMetaPct != null && (
+                  <button
+                    onClick={async () => {
+                      if (!isAuto) {
+                        setEditMode(false);
+                        setDraft('');
+                        await handleMetaSave(a.id, null);
+                      } else {
+                        setEditMode(true);
+                        setDraft(String(pastoMetaPct));
+                        setTimeout(() => inputRef.current?.focus(), 30);
+                      }
+                    }}
+                    title={isAuto ? 'AUTO (suplemento) — clique para definir manualmente' : 'Manual — clique para usar automático'}
+                    className={`flex-shrink-0 w-7 h-4 rounded-full transition-colors relative ${isAuto ? 'bg-teal-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${isAuto ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                  </button>
+                )}
+                <input
+                  ref={inputRef}
+                  type="number" step="0.1" min="0" max="100"
+                  value={inputLocked
+                    ? (pastoMetaPct != null ? String(pastoMetaPct) : '')
+                    : (draft !== '' ? draft : (a.meta_percentagem != null ? String(a.meta_percentagem) : ''))
+                  }
+                  placeholder="—"
+                  disabled={inputLocked}
+                  onChange={e => setDraft(e.target.value)}
+                  onBlur={async () => {
+                    if (draft === '' && a.meta_percentagem == null && !editMode) return;
+                    const val = draft === '' ? null : parseFloat(draft.replace(',', '.'));
+                    if (val !== null && isNaN(val)) return;
+                    await handleMetaSave(a.id, val);
                   }}
-                  title={isAuto ? 'AUTO (suplemento) — clique para definir manualmente' : 'Manual — clique para usar automático'}
-                  className={`flex-shrink-0 w-7 h-4 rounded-full transition-colors relative ${isAuto ? 'bg-teal-500' : 'bg-gray-300'}`}
-                >
-                  <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${isAuto ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
-                </button>
-              )}
-              <input
-                ref={inputRef}
-                type="number" step="0.1" min="0" max="100"
-                value={inputLocked
-                  ? (pastoMetaPct != null ? String(pastoMetaPct) : '')
-                  : (draft !== '' ? draft : (a.meta_percentagem != null ? String(a.meta_percentagem) : ''))
-                }
-                placeholder="—"
-                disabled={inputLocked}
-                onChange={e => setDraft(e.target.value)}
-                onBlur={async () => {
-                  if (draft === '' && a.meta_percentagem == null && !editMode) return;
-                  const val = draft === '' ? null : parseFloat(draft.replace(',', '.'));
-                  if (val !== null && isNaN(val)) return;
-                  await handleMetaSave(a.id, val);
-                }}
-                className={`w-12 h-6 px-1 text-xs font-semibold rounded text-center transition-colors ${
-                  inputLocked
-                    ? 'text-teal-600 bg-teal-50 border border-teal-200 opacity-70 cursor-not-allowed focus:outline-none'
-                    : 'text-blue-700 bg-blue-50 border border-blue-200 focus:outline-none focus:ring-1 focus:ring-blue-400'
-                }`}
-              />
-              <span className={`text-[10px] ${isAuto ? 'text-teal-400' : 'text-blue-400'}`}>%</span>
+                  className={`w-12 h-6 px-1 text-xs font-semibold rounded text-center transition-colors ${
+                    inputLocked
+                      ? 'text-teal-600 bg-teal-50 border border-teal-200 opacity-70 cursor-not-allowed focus:outline-none'
+                      : 'text-blue-700 bg-blue-50 border border-blue-200 focus:outline-none focus:ring-1 focus:ring-blue-400'
+                  }`}
+                />
+                <span className={`text-[10px] ${isAuto ? 'text-teal-400' : 'text-blue-400'}`}>%</span>
+              </div>
+              {/* Linha 2: Meta Acum. + valor calculado */}
               {meta != null && (
-                <span className={`text-xs font-bold whitespace-nowrap ${isAuto ? 'text-teal-700' : 'text-blue-700'}`}>
-                  ={meta.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isAuto ? 'text-teal-400' : 'text-blue-400'}`}>Meta Acum.</span>
+                  <span className={`text-xs font-bold ${isAuto ? 'text-teal-700' : 'text-blue-700'}`}>
+                    {meta.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg
+                  </span>
+                </div>
               )}
             </div>
           </td>
