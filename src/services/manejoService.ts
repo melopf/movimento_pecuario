@@ -660,6 +660,14 @@ export const manejoService = {
     return (data ?? []) as Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null }>;
   },
 
+  async atualizarGmd(animalId: string, gmd: number | null): Promise<void> {
+    const { error } = await supabaseAdmin
+      .from('animals')
+      .update({ gmd })
+      .eq('id', animalId);
+    if (error) throw new Error(error.message);
+  },
+
   async atualizarMetaPercentagem(animalId: string, percentagem: number | null): Promise<void> {
     const { error } = await supabaseAdmin
       .from('animals')

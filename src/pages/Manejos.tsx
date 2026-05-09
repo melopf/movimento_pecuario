@@ -109,6 +109,15 @@ function LotesTab({
     }
   }
 
+  async function handleGmdSave(animalId: string, gmd: number | null) {
+    try {
+      await manejoService.atualizarGmd(animalId, gmd);
+      onReload();
+    } catch {
+      toast.error('Erro ao salvar GMD.');
+    }
+  }
+
   // ── View mode toggle ──
   const [viewMode, setViewMode] = useState<'lista' | 'card'>(() => {
     return (localStorage.getItem('manejos_view_mode') as 'lista' | 'card') ?? 'card';
@@ -267,8 +276,10 @@ function LotesTab({
     const [draft, setDraft] = useState('');
     const [editMode, setEditMode] = useState(false); // desbloqueia input antes de salvar no banco
     const inputRef = useRef<HTMLInputElement>(null);
+    const [gmdDraft, setGmdDraft] = useState('');
     // Quando o banco confirma o novo valor, sai do editMode e limpa o draft
     useEffect(() => { setDraft(''); setEditMode(false); }, [a.meta_percentagem]);
+    useEffect(() => { setGmdDraft(''); }, [a.gmd]);
 
     // META do suplemento para o pasto deste lote (via closure)
     const pastoNome    = a.pasto_id ? (pastoMap[a.pasto_id] ?? '') : '';
@@ -367,6 +378,25 @@ function LotesTab({
               }
               const pastoNomeA = a.pasto_id ? (pastoMap[a.pasto_id] ?? null) : null;
               const effectiveGmd = a.gmd ?? (pastoNomeA ? (pastoGmdMap[pastoNomeA] ?? null) : null);
+              const gmdInput = (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-[9px] text-gray-400 w-8">GMD:</span>
+                  <input
+                    type="number" step="0.01" min="0"
+                    value={gmdDraft !== '' ? gmdDraft : (a.gmd != null ? String(a.gmd) : '')}
+                    placeholder={effectiveGmd ? String(effectiveGmd) : 'kg/d'}
+                    onChange={e => setGmdDraft(e.target.value)}
+                    onBlur={async () => {
+                      if (gmdDraft === '' && a.gmd == null) return;
+                      const val = gmdDraft === '' ? null : parseFloat(gmdDraft);
+                      if (val !== null && isNaN(val)) return;
+                      await handleGmdSave(a.id, val);
+                    }}
+                    className="w-14 h-5 px-1 text-[10px] rounded text-center border border-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-400 text-gray-600 bg-white"
+                  />
+                  <span className="text-[9px] text-gray-400">kg/d</span>
+                </div>
+              );
               if (effectiveGmd && a.data_entrada) {
                 const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada).getTime()) / 86_400_000));
                 return (
@@ -375,10 +405,11 @@ function LotesTab({
                       {(effectiveGmd * dias).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
                     </p>
                     <p className="text-[9px] text-gray-400">{dias}d · {effectiveGmd} kg/d</p>
+                    {gmdInput}
                   </div>
                 );
               }
-              return <span className="text-xs text-gray-300">—</span>;
+              return <div><span className="text-xs text-gray-300">—</span>{gmdInput}</div>;
             })()}
           </td>
           <td className="px-4 py-2.5 text-xs text-gray-500">{a.sexo ?? '—'}</td>
@@ -1985,7 +2016,7 @@ export function Manejos() {
   const [tab, setTab]             = useState<Tab>('lotes');
   const [animals, setAnimals]     = useState<Animal[]>([]);
   const [categories, setCategories] = useState<AnimalCategory[]>([]);
-  const [suppTypes, setSuppTypes] = useState<Array<{ id: string; nome: string; consumo: string | null }>>([]);
+  const [suppTypes, setSuppTypes] = useState<Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null }>>([]);
   const [ganhoAcumMap, setGanhoAcumMap] = useState<Record<string, { ganho: number; data: string; confirmado: boolean }>>({});
   const [loading, setLoading]     = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
