@@ -44,6 +44,7 @@ export function Relatorio() {
   const [suppTypes,  setSuppTypes]  = useState<SuppType[]>([]);
   const [evolucaoHistorico, setEvolucaoHistorico] = useState<Array<{animal_id: string; created_at: string; peso_medio: number}>>([]);
   const [lotePastosHistorico, setLotePastosHistorico] = useState<Set<string>>(new Set());
+  const [transferHistorico, setTransferHistorico] = useState<Array<{animal_id: string; pasto_origem: string}>>([]);
 
   useEffect(() => {
     if (!farmId) return;
@@ -58,6 +59,14 @@ export function Relatorio() {
         .eq('tipo', 'evolucao_categoria')
         .not('peso_medio', 'is', null)
     ).then(({ data }) => setEvolucaoHistorico((data ?? []) as Array<{animal_id: string; created_at: string; peso_medio: number}>)).catch(() => {});
+    void supabaseAdmin.from('manejo_historico')
+      .select('animal_id, pasto_origem')
+      .eq('farm_id', farmId)
+      .eq('tipo', 'transferencia')
+      .not('pasto_origem', 'is', null)
+      .then(({ data }) => setTransferHistorico(
+        (data ?? []).filter((r: Record<string, unknown>) => r.pasto_origem) as Array<{animal_id: string; pasto_origem: string}>
+      )).catch(() => {});
   }, [farmId]);
 
   // Quando filterLote muda, buscar histórico de pastos do lote no manejo_historico
@@ -166,6 +175,23 @@ export function Relatorio() {
     return map;
   }, [animals, pastoIdToNome]);
 
+  /* ── Lookup rápido animal_id → Animal ── */
+  const animalById = useMemo(() => {
+    const map: Record<string, Animal> = {};
+    for (const a of animals) map[a.id] = a;
+    return map;
+  }, [animals]);
+
+  /* ── Mapa pastoOrigem → [animal_ids] para pastos que perderam lote por transferência ── */
+  const pastoHistoricoAnimaisMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const t of transferHistorico) {
+      if (!map[t.pasto_origem]) map[t.pasto_origem] = [];
+      if (!map[t.pasto_origem].includes(t.animal_id)) map[t.pasto_origem].push(t.animal_id);
+    }
+    return map;
+  }, [transferHistorico]);
+
   /* ── Mapa suppNome → { consumoPct, consumoPctLabel, valorKg } ── */
   const suppTypeMap = useMemo(() => {
     const map: Record<string, { consumoPct: number | null; consumoPctLabel: string | null; valorKg: number | null }> = {};
@@ -231,7 +257,22 @@ export function Relatorio() {
   /* ── Peso histórico ponderado de um pasto em uma data específica ── */
   function getPesoHistorico(pastoNome: string, date: string | undefined): number | null {
     const animaisPasto = pastoAnimaisMap[pastoNome] ?? [];
-    if (animaisPasto.length === 0) return pastoNomePesoMap[pastoNome] ?? null;
+    if (animaisPasto.length === 0) {
+      // Fallback: animais que foram transferidos deste pasto (peso atual como aproximação)
+      const historicIds = pastoHistoricoAnimaisMap[pastoNome] ?? [];
+      if (historicIds.length > 0) {
+        let pesoTotal = 0, qtdTotal = 0;
+        for (const id of historicIds) {
+          const a = animalById[id];
+          if (a?.peso_medio) {
+            pesoTotal += a.quantidade * a.peso_medio;
+            qtdTotal  += a.quantidade;
+          }
+        }
+        if (qtdTotal > 0) return pesoTotal / qtdTotal;
+      }
+      return pastoNomePesoMap[pastoNome] ?? null;
+    }
     let pesoTotal = 0;
     let qtdTotal  = 0;
     for (const a of animaisPasto) {
@@ -267,13 +308,16 @@ export function Relatorio() {
         const desembolso = valorKg != null && e.consumo > 0
           ? e.consumo * valorKg
           : undefined;
-        const lote = (pastoLotesMap[e.pasto] ?? []).join(', ') || undefined;
+        const loteAtual = (pastoLotesMap[e.pasto] ?? []).join(', ');
+        const loteHistorico = (pastoHistoricoAnimaisMap[e.pasto] ?? [])
+          .map(id => animalById[id]?.nome).filter(Boolean).join(', ');
+        const lote = loteAtual || loteHistorico || undefined;
         return { ...e, meta, metaLabel, desembolso, lote };
       });
     }
     return result;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aggregatedGroups, suppTypeMap, pastoLotesMap, pastoAnimaisMap, evolucaoByAnimal, pastoNomePesoMap]);
+  }, [aggregatedGroups, suppTypeMap, pastoLotesMap, pastoAnimaisMap, evolucaoByAnimal, pastoNomePesoMap, pastoHistoricoAnimaisMap, animalById]);
 
   /* ── KPI stats ── */
   const totalEntries  = filtered.length;

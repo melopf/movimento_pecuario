@@ -85,7 +85,7 @@ function EntryEditRow({ entry, pastures, tipoOptions, supplementTypes, onSave, o
         </select>
       </td>
       <td className={cellClass}>
-        <input type="number" min="0" step="1" {...register('sacos', { valueAsNumber: true })} className={inp} />
+        <input type="number" min="0" step="0.5" {...register('sacos', { valueAsNumber: true })} className={inp} />
       </td>
       <td className={`${cellClass} text-xs font-semibold tabular-nums`} style={{ color: '#1a6040' }}>
         {kgCalc > 0 ? fmtInt(kgCalc) : '0'}
@@ -628,7 +628,7 @@ export function Formulario() {
                 <input
                   type="number"
                   min="0"
-                  step="1"
+                  step="0.5"
                   placeholder="0"
                   {...register('sacos', { valueAsNumber: true })}
                   disabled={!!selectedTipo && (!suppInfo || !suppInfo.peso)}
@@ -693,7 +693,7 @@ export function Formulario() {
                     <input
                       type="number"
                       min="0"
-                      step="1"
+                      step="0.5"
                       placeholder="0"
                       {...register('sacosBez', { valueAsNumber: true })}
                       className={inputClass}
@@ -861,7 +861,7 @@ export function Formulario() {
                         })()}
                         <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: '#1a6040' }}>{fmtInt(entry.quantidade)}</td>
                         <td className="px-4 py-3 text-gray-700">{entry.tipo}</td>
-                        <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: '#1a6040' }}>{fmtInt(entry.sacos)}</td>
+                        <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: '#1a6040' }}>{entry.sacos % 1 !== 0 ? entry.sacos.toLocaleString('pt-BR') : fmtInt(entry.sacos)}</td>
                         <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: '#1a6040' }}>{fmtInt(entry.kg)}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{entry.funcionario ?? '—'}</td>
                         <td className="px-4 py-3">
