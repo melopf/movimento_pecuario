@@ -1437,6 +1437,9 @@ function EvolucaoTab({
         catPeso ? Number(catPeso) : undefined, catData,
         catBezPeso ? Number(catBezPeso) : undefined,
       );
+      if (catPeso) {
+        await manejoService.confirmarPesoReal(farmId, selectedAnimals, Number(catPeso), catData);
+      }
       toast.success(`${selected.size} lote(s) evoluído(s) para ${catMap[novaCatId]}!`);
       setSelected(new Set()); setNovaCatId(''); setCatPeso(''); setCatBezPeso(''); setCatData(new Date().toISOString().split('T')[0]);
       onReload(); await reloadHistorico();

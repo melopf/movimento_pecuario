@@ -599,6 +599,53 @@ export const manejoService = {
     return result;
   },
 
+  async confirmarPesoReal(
+    farmId: string,
+    animals: Animal[],
+    pesoReal: number,
+    data: string,
+  ): Promise<void> {
+    const ids = animals.map(a => a.id);
+
+    // Remove registros do dia para recriar como confirmado
+    await supabaseAdmin
+      .from('lote_historico_diario')
+      .delete()
+      .eq('farm_id', farmId)
+      .eq('data', data)
+      .in('animal_id', ids);
+
+    const records = animals
+      .filter(a => (a.status === 'ativo' || !a.status) && a.pasto_id)
+      .map(a => {
+        const dataRef = a.data_entrada ?? data;
+        const dias = Math.max(0, Math.floor(
+          (new Date(data + 'T12:00:00').getTime() - new Date(dataRef + 'T12:00:00').getTime()) / 86_400_000
+        ));
+        const ganho_acum = a.gmd ? parseFloat((a.gmd * dias).toFixed(3)) : 0;
+        return {
+          farm_id:      farmId,
+          animal_id:    a.id,
+          data,
+          pasto_id:     a.pasto_id,
+          gmd:          a.gmd ?? null,
+          peso_estimado: pesoReal,
+          peso_real:    pesoReal,
+          ganho_acum,
+          confirmado:   true,
+        };
+      });
+
+    if (records.length > 0) {
+      await supabaseAdmin.from('lote_historico_diario').insert(records);
+    }
+
+    // Reseta data_entrada para o dia da confirmação — GMD futuro conta a partir daqui
+    if (ids.length > 0) {
+      await supabaseAdmin.from('animals').update({ data_entrada: data }).in('id', ids);
+    }
+  },
+
   async listarSupplementTypes(farmId: string): Promise<Array<{ id: string; nome: string; consumo: string | null }>> {
     const { data } = await supabaseAdmin
       .from('supplement_types')
