@@ -4,6 +4,7 @@ import type { DataEntry } from '../lib/data';
 import { sampleRows } from '../lib/data';
 import { useAuth } from './AuthContext';
 import { farmService } from '../services/farmService';
+import { manejoService } from '../services/manejoService';
 import { supabaseAdmin } from '../lib/supabase';
 import type { Farm } from '../types/farm';
 
@@ -268,9 +269,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   function addEntry(entry: DataEntry) {
     const tempId = `temp-${Date.now()}`;
     setEntries(prev => [...prev, { ...entry, id: tempId }]);
+    const dataLanc = entry.data || new Date().toISOString().split('T')[0];
     supabaseAdmin.from('data_entries').insert({
       farm_id:     activeFarmId,
-      data:        entry.data || new Date().toISOString().split('T')[0],
+      data:        dataLanc,
       pasto_nome:  entry.pasto,
       suplemento:  entry.tipo,
       quantidade:  entry.quantidade,
@@ -283,6 +285,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }).select().single().then(({ data, error }) => {
       if (data) setEntries(prev => prev.map(e => e.id === tempId ? toDataEntry(data) : e));
       if (error) setEntries(prev => prev.filter(e => e.id !== tempId));
+      // Retroativo: popula lote_diario para cada dia do período deste lançamento
+      if (!error && activeFarmId && entry.pasto && entry.tipo) {
+        manejoService.upsertDiarioByLancamento(activeFarmId, {
+          pasto_nome: entry.pasto,
+          suplemento: entry.tipo,
+          data: dataLanc,
+          periodo: entry.periodo,
+          consumo: entry.consumo,
+        }).catch(() => {});
+      }
     });
   }
 

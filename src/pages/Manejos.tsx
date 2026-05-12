@@ -2258,31 +2258,50 @@ export function Manejos() {
   // Upsert histórico diário e carrega ganho acumulado (roda após animals + entries estarem prontos)
   useEffect(() => {
     if (!activeFarmId || animals.length === 0) return;
+    const norm = (s: string) => s.trim().toUpperCase();
     const pMap = Object.fromEntries(pastures.map(p => [p.id, p.nome]));
-    const latestByPasto: Record<string, string> = {};
+
+    // Chaves normalizadas; ignora Creep (suplemento exclusivo de bezerros)
+    const latestNonCreepByPasto: Record<string, string> = {};
     for (const e of entries) {
       if (!e.pasto || !e.data || !e.tipo) continue;
-      if (!latestByPasto[e.pasto] || e.data > latestByPasto[e.pasto]) latestByPasto[e.pasto] = e.data;
+      if (norm(e.tipo).includes('CREEP')) continue;
+      const nk = norm(e.pasto);
+      if (!latestNonCreepByPasto[nk] || e.data > latestNonCreepByPasto[nk]) latestNonCreepByPasto[nk] = e.data;
     }
-    const pastoSuppMap: Record<string, string> = {};
+    const pastoSuppMapN: Record<string, string> = {};
     for (const e of entries) {
       if (!e.pasto || !e.data || !e.tipo) continue;
-      if (e.data === latestByPasto[e.pasto]) pastoSuppMap[e.pasto] = e.tipo;
+      if (norm(e.tipo).includes('CREEP')) continue;
+      const nk = norm(e.pasto);
+      if (e.data === latestNonCreepByPasto[nk]) pastoSuppMapN[nk] = e.tipo;
     }
+
+    // GMD e META por suplemento (chave = nome normalizado do suplemento)
     const suppGmdByNome: Record<string, number> = {};
+    const suppMetaByNome: Record<string, number> = {};
     for (const s of suppTypes) {
-      if (s.gmd_esperado) suppGmdByNome[s.nome] = s.gmd_esperado;
+      if (s.gmd_esperado) suppGmdByNome[norm(s.nome)] = s.gmd_esperado;
+      if (s.consumo) {
+        const pctStr = META_CONSUMO[s.consumo as string];
+        if (pctStr) suppMetaByNome[norm(s.nome)] = parseFloat(pctStr.replace(',', '.').replace('%', ''));
+      }
     }
+
     const pastoGmdMapUpsert: Record<string, number> = {};
-    for (const [pastoNome, suppNome] of Object.entries(pastoSuppMap)) {
-      const gmd = suppGmdByNome[suppNome];
-      if (gmd) pastoGmdMapUpsert[pastoNome] = gmd;
+    const pastoMetaMapUpsert: Record<string, number> = {};
+    for (const [nk, suppNome] of Object.entries(pastoSuppMapN)) {
+      const gmd = suppGmdByNome[norm(suppNome)];
+      if (gmd) pastoGmdMapUpsert[nk] = gmd;
+      const meta = suppMetaByNome[norm(suppNome)];
+      if (meta) pastoMetaMapUpsert[nk] = meta;
     }
-    manejoService.upsertHistoricoDiario(activeFarmId, animals, pMap, pastoSuppMap, pastoGmdMapUpsert)
+
+    manejoService.upsertHistoricoDiario(activeFarmId, animals, pMap, pastoSuppMapN, pastoGmdMapUpsert, pastoMetaMapUpsert)
       .then(() => manejoService.buscarGanhoAcumulado(activeFarmId))
       .then(gMap => setGanhoAcumMap(gMap))
       .catch(() => {});
-  }, [activeFarmId, animals, pastures, entries]);
+  }, [activeFarmId, animals, pastures, entries, suppTypes]);
 
   function reload() { setRefreshTick(t => t + 1); }
 

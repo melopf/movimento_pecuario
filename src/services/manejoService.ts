@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../lib/supabase';
+import { META_CONSUMO } from '../lib/data';
 
 /* ── Types ── */
 
@@ -543,23 +544,27 @@ export const manejoService = {
   async upsertHistoricoDiario(
     farmId: string,
     animals: Animal[],
-    pastoMap: Record<string, string>,     // pasto_id → pasto_nome
-    pastoSuppMap: Record<string, string>, // pasto_nome → suplemento mais recente
-    pastoGmdMap: Record<string, number> = {}, // pasto_nome → gmd_esperado do suplemento
+    pastoMap: Record<string, string>,       // pasto_id → pasto_nome
+    pastoSuppMap: Record<string, string>,   // norm(pasto_nome) → suplemento adulto mais recente
+    pastoGmdMap: Record<string, number> = {}, // norm(pasto_nome) → gmd_esperado do suplemento
+    pastoMetaMap: Record<string, number> = {}, // norm(pasto_nome) → meta% do suplemento adulto
   ): Promise<void> {
     const today = new Date().toISOString().split('T')[0];
+    const n = (s: string) => s.trim().toUpperCase();
+
     const ativos = animals.filter(a => {
       if (!(a.status === 'ativo' || !a.status)) return false;
       if (!a.data_entrada || !a.pasto_id) return false;
-      const pastoNome = pastoMap[a.pasto_id] ?? '';
-      const effectiveGmd = a.gmd ?? pastoGmdMap[pastoNome] ?? 0;
-      return effectiveGmd > 0;
+      const pNome = pastoMap[a.pasto_id] ?? '';
+      const effectiveGmd = a.gmd ?? pastoGmdMap[n(pNome)] ?? 0;
+      const metaPct = a.meta_percentagem ?? pastoMetaMap[n(pNome)] ?? null;
+      return effectiveGmd > 0 || metaPct != null;
     });
     if (ativos.length === 0) return;
 
     // Remove registros não confirmados de hoje para recriar com dados frescos
     await supabaseAdmin
-      .from('lote_historico_diario')
+      .from('lote_diario')
       .delete()
       .eq('farm_id', farmId)
       .eq('data', today)
@@ -567,30 +572,48 @@ export const manejoService = {
 
     const records = ativos.map(a => {
       const pastoNome = pastoMap[a.pasto_id!] ?? null;
-      const effectiveGmd = a.gmd ?? (pastoNome ? (pastoGmdMap[pastoNome] ?? 0) : 0);
+      const nk = pastoNome ? n(pastoNome) : '';
+      const effectiveGmd = a.gmd ?? (nk ? (pastoGmdMap[nk] ?? 0) : 0);
       const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada!).getTime()) / 86_400_000));
       const ganho_acum = parseFloat((effectiveGmd * dias).toFixed(3));
       const peso_estimado = parseFloat(((a.peso_medio ?? 0) + ganho_acum).toFixed(1));
+
+      // Meta ativa hoje: manual do animal > automático do suplemento do pasto
+      const meta_pct = a.meta_percentagem ?? (nk ? (pastoMetaMap[nk] ?? null) : null);
+      const fonte_meta = a.meta_percentagem != null ? 'manual' : (nk && pastoMetaMap[nk] != null ? 'suplemento' : null);
+      const meta_kg_cab = meta_pct != null && a.peso_medio != null
+        ? parseFloat((a.peso_medio * meta_pct / 100).toFixed(4))
+        : null;
+      const meta_kg_total = meta_kg_cab != null
+        ? parseFloat((meta_kg_cab * (a.quantidade ?? 1)).toFixed(3))
+        : null;
+
       return {
         farm_id: farmId,
         animal_id: a.id,
         data: today,
         pasto_id: a.pasto_id,
         pasto_nome: pastoNome,
-        suplemento: pastoNome ? (pastoSuppMap[pastoNome] ?? null) : null,
-        gmd: effectiveGmd,
-        peso_estimado,
+        suplemento: nk ? (pastoSuppMap[nk] ?? null) : null,
+        fonte_meta,
+        meta_pct,
+        meta_kg_cab,
+        meta_kg_total,
+        consumo_kg_cab: null,
+        gmd: effectiveGmd || null,
+        ganho_dia: effectiveGmd || null,
         ganho_acum,
+        peso_estimado,
         confirmado: false,
       };
     });
 
-    await supabaseAdmin.from('lote_historico_diario').insert(records);
+    await supabaseAdmin.from('lote_diario').insert(records);
   },
 
   async buscarGanhoAcumulado(farmId: string): Promise<Record<string, { ganho: number; data: string; confirmado: boolean }>> {
     const { data } = await supabaseAdmin
-      .from('lote_historico_diario')
+      .from('lote_diario')
       .select('animal_id, ganho_acum, data, confirmado')
       .eq('farm_id', farmId)
       .order('data', { ascending: false });
@@ -615,7 +638,7 @@ export const manejoService = {
 
     // Remove registros do dia para recriar como confirmado
     await supabaseAdmin
-      .from('lote_historico_diario')
+      .from('lote_diario')
       .delete()
       .eq('farm_id', farmId)
       .eq('data', data)
@@ -643,12 +666,121 @@ export const manejoService = {
       });
 
     if (records.length > 0) {
-      await supabaseAdmin.from('lote_historico_diario').insert(records);
+      await supabaseAdmin.from('lote_diario').insert(records);
     }
 
     // Reseta data_entrada para o dia da confirmação — GMD futuro conta a partir daqui
     if (ids.length > 0) {
       await supabaseAdmin.from('animals').update({ data_entrada: data }).in('id', ids);
+    }
+  },
+
+  async upsertDiarioByLancamento(
+    farmId: string,
+    lancamento: {
+      pasto_nome: string;
+      suplemento: string;
+      data: string;        // YYYY-MM-DD — último dia do período
+      periodo: number;     // quantidade de dias cobertos
+      consumo: number;     // kg/cab/dia do lançamento
+    },
+  ): Promise<void> {
+    const n = (s: string) => s.trim().toUpperCase();
+
+    // 1. Localiza pasto pelo nome
+    const { data: pastos } = await supabaseAdmin
+      .from('pastures').select('id, nome').eq('farm_id', farmId);
+    const pasto = (pastos ?? []).find(p => n(p.nome) === n(lancamento.pasto_nome));
+    if (!pasto) return;
+
+    // 2. Resolve meta_pct e gmd via supplement_types
+    const { data: suppTypes } = await supabaseAdmin
+      .from('supplement_types')
+      .select('nome, consumo, gmd_esperado')
+      .eq('farm_id', farmId);
+    const supp = (suppTypes ?? []).find(s => n(s.nome) === n(lancamento.suplemento));
+    let meta_pct_supp: number | null = null;
+    let gmd_supp: number | null = null;
+    if (supp) {
+      if (supp.consumo) {
+        const pctStr = META_CONSUMO[supp.consumo as string];
+        if (pctStr) meta_pct_supp = parseFloat(pctStr.replace(',', '.').replace('%', ''));
+      }
+      gmd_supp = supp.gmd_esperado ?? null;
+    }
+
+    // 3. Animais ativos no pasto
+    const { data: animais } = await supabaseAdmin
+      .from('animals')
+      .select('id, quantidade, peso_medio, data_entrada, meta_percentagem, gmd')
+      .eq('farm_id', farmId)
+      .eq('pasto_id', pasto.id)
+      .eq('status', 'ativo');
+    if (!animais || animais.length === 0) return;
+
+    // 4. Gera lista de datas do período
+    const dataFim = new Date(lancamento.data + 'T12:00:00');
+    const dates: string[] = [];
+    for (let i = lancamento.periodo - 1; i >= 0; i--) {
+      const d = new Date(dataFim);
+      d.setDate(d.getDate() - i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+
+    const animalIds = animais.map(a => a.id);
+
+    // 5. Remove registros não confirmados para esses animais nas datas do período
+    await supabaseAdmin
+      .from('lote_diario')
+      .delete()
+      .eq('farm_id', farmId)
+      .in('animal_id', animalIds)
+      .in('data', dates)
+      .eq('confirmado', false);
+
+    // 6. Insere um registro por animal×dia
+    const allRecords: object[] = [];
+    for (const dayStr of dates) {
+      for (const a of animais) {
+        const effectiveGmd = a.gmd ?? gmd_supp ?? 0;
+        const dataRef = a.data_entrada ?? dayStr;
+        const dias = Math.max(0, Math.floor(
+          (new Date(dayStr + 'T12:00:00').getTime() - new Date(dataRef + 'T12:00:00').getTime()) / 86_400_000,
+        ));
+        const ganho_acum = parseFloat((effectiveGmd * dias).toFixed(3));
+        const peso_estimado = parseFloat(((a.peso_medio ?? 0) + ganho_acum).toFixed(1));
+
+        const effective_meta_pct = a.meta_percentagem ?? meta_pct_supp;
+        const fonte_meta = a.meta_percentagem != null ? 'manual' : (meta_pct_supp != null ? 'suplemento' : null);
+        const meta_kg_cab = effective_meta_pct != null && a.peso_medio != null
+          ? parseFloat((a.peso_medio * effective_meta_pct / 100).toFixed(4))
+          : null;
+        const meta_kg_total = meta_kg_cab != null
+          ? parseFloat((meta_kg_cab * (a.quantidade ?? 1)).toFixed(3))
+          : null;
+
+        allRecords.push({
+          farm_id: farmId,
+          animal_id: a.id,
+          data: dayStr,
+          pasto_id: pasto.id,
+          pasto_nome: pasto.nome,
+          suplemento: lancamento.suplemento,
+          fonte_meta,
+          meta_pct: effective_meta_pct,
+          meta_kg_cab,
+          meta_kg_total,
+          consumo_kg_cab: lancamento.consumo,
+          gmd: effectiveGmd || null,
+          ganho_dia: effectiveGmd || null,
+          ganho_acum,
+          peso_estimado,
+          confirmado: false,
+        });
+      }
+    }
+    if (allRecords.length > 0) {
+      await supabaseAdmin.from('lote_diario').insert(allRecords);
     }
   },
 
