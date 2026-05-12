@@ -528,7 +528,7 @@ let _farmUsersCache: FarmUser[] = [];
 let _farmsCache: Farm[]      = [];
 
 export function Usuarios() {
-  const { user, isAdmin, hasModule } = useAuth();
+  const { user, isAdmin, hasModule, hasEditPermission } = useAuth();
   const [users, setUsers]         = useState<FarmUser[]>(_usersCache);
   const [loading, setLoading]     = useState(_usersCache.length === 0 && _farmUsersCache.length === 0);
   const [modalOpen, setModalOpen] = useState(false);
@@ -754,7 +754,7 @@ export function Usuarios() {
               {' '}· {farmUsers.length} usuário{farmUsers.length !== 1 ? 's' : ''}
             </p>
           </div>
-          {hasModule('usuarios') && (
+          {hasEditPermission('usuarios') && (
             <button onClick={openClientCreate}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-colors shadow-sm">
               <Plus className="w-4 h-4" /> Novo Usuário
@@ -847,7 +847,7 @@ export function Usuarios() {
                           <KeyRound className="w-3.5 h-3.5" /> Trocar Senha
                         </button>
                       )}
-                      {hasModule('usuarios') && u.id !== user!.id && (
+                      {hasEditPermission('usuarios') && u.id !== user!.id && (
                         <button
                           onClick={() => openClientEdit(u)}
                           className="p-2 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
