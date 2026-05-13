@@ -528,7 +528,7 @@ let _farmUsersCache: FarmUser[] = [];
 let _farmsCache: Farm[]      = [];
 
 export function Usuarios() {
-  const { user, isAdmin, hasModule, hasEditPermission } = useAuth();
+  const { user, isAdmin, hasEditPermission } = useAuth();
   const [users, setUsers]         = useState<FarmUser[]>(_usersCache);
   const [loading, setLoading]     = useState(_usersCache.length === 0 && _farmUsersCache.length === 0);
   const [modalOpen, setModalOpen] = useState(false);

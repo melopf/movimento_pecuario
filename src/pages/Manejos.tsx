@@ -382,7 +382,6 @@ function LotesTab({
 
     // GMD e meta separados: adultos usam suplemento adulto, bezerros usam Creep
     const nPasto         = norm(pastoNome);
-    const isCreepPastoRow = pastoIsCreepMap[nPasto] ?? false;
     const creepGmd       = pastoGmdCreepMap[nPasto] ?? null;
 
     // Meta adulto = suplemento não-Creep do pasto (mapa já exclui Creep)
