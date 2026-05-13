@@ -199,19 +199,6 @@ function LotesTab({
     return result;
   }, [suppTypes, entries]);
 
-  // Mapa: norm(pasto_nome) → true se o pasto tem ANY entrada Creep
-  const pastoIsCreepMap = useMemo(() => {
-    const suppIsCreep: Record<string, boolean> = {};
-    for (const s of suppTypes) {
-      suppIsCreep[s.nome] = s.categoria_simulador === 'Ração Creep' || s.nome.toLowerCase().includes('creep');
-    }
-    const result: Record<string, boolean> = {};
-    for (const e of entries) {
-      if (!e.pasto || !e.tipo) continue;
-      if (suppIsCreep[e.tipo]) result[norm(e.pasto)] = true;
-    }
-    return result;
-  }, [suppTypes, entries]);
 
   // Mapa: norm(pasto_nome) → consumoPct (%) do suplemento adulto mais recente (exclui Creep)
   // + diagnóstico: norm(pasto_nome) → nome do suplemento detectado (mesmo sem consumo cadastrado)
