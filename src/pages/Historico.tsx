@@ -5,6 +5,8 @@ import { supabaseAdmin } from '../lib/supabase';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { SkeletonTable } from '../components/Skeleton';
+import { manejoService, type Animal } from '../services/manejoService';
+import { HistoricoDiarioTab } from '../components/HistoricoDiarioTab';
 
 const TIPO_LABELS: Record<string, string> = {
   alocacao:           'Alocação',
@@ -60,7 +62,7 @@ const MODULE_COLORS: Record<string, string> = {
   relatorio:  'bg-emerald-50 text-emerald-700',
 };
 
-type FilterType = 'all' | 'manejo' | 'lancamento' | 'activity' | 'pastos';
+type FilterType = 'all' | 'manejo' | 'lancamento' | 'activity' | 'pastos' | 'historico_diario';
 
 interface HistoricoEntry {
   id: string;
@@ -106,6 +108,7 @@ export function Historico() {
   const [pastures, setPastures]         = useState<PastureRow[]>([]);
   const [pastoAnimals, setPastoAnimals] = useState<AnimalRow[]>([]);
   const [loteOptions, setLoteOptions]   = useState<string[]>([]);
+  const [animals, setAnimals]           = useState<Animal[]>([]);
 
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
@@ -132,13 +135,15 @@ export function Historico() {
         .select('nome, pasto_id').eq('farm_id', farmId).eq('status', 'ativo').order('nome'),
       supabaseAdmin.from('pastures')
         .select('id, nome, area, created_at').eq('farm_id', farmId).order('nome'),
-    ]).then(([manRes, lanRes, actRes, animRes, pastRes]) => {
+      manejoService.listarAnimais(farmId),
+    ]).then(([manRes, lanRes, actRes, animRes, pastRes, animais]) => {
       setManejos(manRes.data ?? []);
       setLancamentos(lanRes.data ?? []);
       setActivityLogs(actRes.data ?? []);
       setPastoAnimals(animRes.data ?? []);
       setLoteOptions((animRes.data ?? []).map((a: AnimalRow) => a.nome));
       setPastures(pastRes.data ?? []);
+      setAnimals(animais);
     }).catch(() => {}).finally(() => setLoading(false));
   }, [farmId]);
 
@@ -227,11 +232,12 @@ export function Historico() {
   }
 
   const FILTER_TABS: { key: FilterType; label: string; count: number }[] = [
-    { key: 'all',       label: 'Todos',        count: allEntries.length },
-    { key: 'lancamento',label: 'Lançamentos',  count: allEntries.filter(e => e.source === 'lancamento' || (e.source === 'activity' && e.module === 'formulario')).length },
-    { key: 'manejo',    label: 'Manejos',      count: allEntries.filter(e => e.source === 'manejo').length },
-    { key: 'activity',  label: 'Atividades',   count: allEntries.filter(e => e.source === 'activity' && e.module !== 'formulario').length },
-    { key: 'pastos',    label: 'Pastos',       count: pastures.length },
+    { key: 'all',              label: 'Todos',             count: allEntries.length },
+    { key: 'lancamento',       label: 'Lançamentos',       count: allEntries.filter(e => e.source === 'lancamento' || (e.source === 'activity' && e.module === 'formulario')).length },
+    { key: 'manejo',           label: 'Manejos',           count: allEntries.filter(e => e.source === 'manejo').length },
+    { key: 'activity',         label: 'Atividades',        count: allEntries.filter(e => e.source === 'activity' && e.module !== 'formulario').length },
+    { key: 'pastos',           label: 'Pastos',            count: pastures.length },
+    { key: 'historico_diario', label: 'Histórico Diário',  count: animals.filter(a => a.status === 'ativo' || !a.status).length },
   ];
 
   return (
@@ -244,8 +250,8 @@ export function Historico() {
           <p className="text-sm text-gray-500 mt-1">Registro completo de manejos, lançamentos e atividades do sistema.</p>
         </div>
 
-        {/* Filtro por lote (oculto na aba Pastos) */}
-        {loteOptions.length > 0 && filterType !== 'pastos' && (
+        {/* Filtro por lote (oculto nas abas Pastos e Histórico Diário) */}
+        {loteOptions.length > 0 && filterType !== 'pastos' && filterType !== 'historico_diario' && (
           <div className="flex items-center gap-3 flex-wrap bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Lote</span>
             <select
@@ -265,7 +271,7 @@ export function Historico() {
         )}
 
         {/* Filtro por pasto (somente na aba Pastos) */}
-        {filterType === 'pastos' && pastures.length > 0 && (
+        {filterType === 'pastos' && filterType !== 'historico_diario' && pastures.length > 0 && (
           <div className="flex items-center gap-3 flex-wrap bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pasto</span>
             <select
@@ -284,8 +290,8 @@ export function Historico() {
           </div>
         )}
 
-        {/* Filtro de datas */}
-        <div className="flex items-center gap-3 flex-wrap bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+        {/* Filtro de datas (oculto no Histórico Diário — tem seus próprios filtros) */}
+        {filterType !== 'historico_diario' && <div className="flex items-center gap-3 flex-wrap bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Período</span>
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-500">De</label>
@@ -313,7 +319,7 @@ export function Historico() {
               Limpar datas
             </button>
           )}
-        </div>
+        </div>}
 
         {/* Chips de filtro */}
         <div className="flex flex-wrap gap-2">
@@ -335,8 +341,10 @@ export function Historico() {
           ))}
         </div>
 
-        {/* ── Pastos View ── */}
-        {filterType === 'pastos' ? (
+        {/* ── Histórico Diário ── */}
+        {filterType === 'historico_diario' ? (
+          <HistoricoDiarioTab farmId={farmId} animals={animals} />
+        ) : filterType === 'pastos' ? (
           <div className="space-y-4">
             {/* search bar para pastos */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
