@@ -67,10 +67,13 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
   }
 
   useEffect(() => {
-    if (!farmId) return;
+    if (!farmId || selectedAnimalId === 'all') {
+      setRecords([]);
+      return;
+    }
     setLoading(true);
     manejoService.buscarHistoricoDiario(farmId, {
-      animalId: selectedAnimalId !== 'all' ? selectedAnimalId : undefined,
+      animalId: selectedAnimalId,
       ...buildDateRange(),
     })
       .then(r => setRecords(r))
@@ -172,6 +175,14 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
       {/* ── Conteúdo ── */}
       {loading ? (
         <SkeletonTable rows={6} cols={7} />
+      ) : selectedAnimalId === 'all' ? (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm py-20 text-center">
+          <History className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-gray-600">Selecione um lote para ver o histórico</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Escolha um lote no filtro acima para carregar os registros diários.
+          </p>
+        </div>
       ) : records.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm py-20 text-center">
           <History className="w-10 h-10 text-gray-300 mx-auto mb-3" />
