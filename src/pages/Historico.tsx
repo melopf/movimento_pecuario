@@ -271,7 +271,7 @@ export function Historico() {
         )}
 
         {/* Filtro por pasto (somente na aba Pastos) */}
-        {filterType === 'pastos' && filterType !== 'historico_diario' && pastures.length > 0 && (
+        {filterType === 'pastos' && pastures.length > 0 && (
           <div className="flex items-center gap-3 flex-wrap bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pasto</span>
             <select
