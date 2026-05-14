@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { History, Filter, TrendingUp, RefreshCw } from 'lucide-react';
+import { History, Filter, TrendingUp, RefreshCw, BarChart2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
@@ -110,16 +110,28 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
     return map;
   }, [records]);
 
-  /* ── Dados do gráfico: linha verde = peso inicial estático, azul = ganho simulado ── */
+  const sortedAsc = useMemo(
+    () => [...records].sort((a, b) => a.data.localeCompare(b.data)),
+    [records],
+  );
+
+  /* ── Gráfico 1: evolução de peso ── */
   const chartData = useMemo(() => {
-    return [...records]
-      .sort((a, b) => a.data.localeCompare(b.data))
-      .map(r => ({
-        data: r.data.split('-').reverse().join('/'),
-        'Peso Inicial':   r.peso_estimado ?? undefined,
-        'Ganho Simulado': pesoSimuladoMap[`${r.data}_${r.animal_id}`] ?? undefined,
-      }));
-  }, [records, pesoSimuladoMap]);
+    return sortedAsc.map(r => ({
+      data: r.data.split('-').reverse().join('/'),
+      'Peso Inicial':   r.peso_estimado ?? undefined,
+      'Ganho Simulado': pesoSimuladoMap[`${r.data}_${r.animal_id}`] ?? undefined,
+    }));
+  }, [sortedAsc, pesoSimuladoMap]);
+
+  /* ── Gráfico 2: consumo diário vs meta ── */
+  const consumoChartData = useMemo(() => {
+    return sortedAsc.map(r => ({
+      data:          r.data.split('-').reverse().join('/'),
+      'Consumo':     r.consumo_kg_cab ?? undefined,
+      'Meta':        r.meta_kg_cab    ?? undefined,
+    }));
+  }, [sortedAsc]);
 
   return (
     <div className="space-y-5">
@@ -200,54 +212,109 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
         </div>
       ) : (
         <>
-          {/* ── Gráfico de evolução de peso ── */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-5">
-              <TrendingUp className="w-4 h-4 text-teal-600" />
-              <span className="text-sm font-semibold text-gray-800">Evolução do Peso Estimado</span>
+          {/* ── Dois gráficos lado a lado ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+
+            {/* Gráfico 1 — evolução de peso */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-5">
+                <TrendingUp className="w-4 h-4 text-teal-600" />
+                <span className="text-sm font-semibold text-gray-800">Evolução do Peso Estimado</span>
+              </div>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis
+                    dataKey="data"
+                    tick={{ fontSize: 11, fill: '#9ca3af' }}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#9ca3af' }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={v => `${v} kg`}
+                    width={72}
+                  />
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                    formatter={(v: number) => [
+                      `${v.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} kg`,
+                    ]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="Peso Inicial"
+                    stroke="#1a6040"
+                    strokeWidth={2}
+                    strokeDasharray="5 4"
+                    dot={false}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="Ganho Simulado"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis
-                  dataKey="data"
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
-                  tickLine={false}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={v => `${v} kg`}
-                  width={72}
-                />
-                <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
-                  formatter={(v: number) => [
-                    `${v.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} kg`,
-                  ]}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line
-                  type="monotone"
-                  dataKey="Peso Inicial"
-                  stroke="#1a6040"
-                  strokeWidth={2}
-                  strokeDasharray="5 4"
-                  dot={false}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Ganho Simulado"
-                  stroke="#2563eb"
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                />
-              </LineChart>
-            </ResponsiveContainer>
+
+            {/* Gráfico 2 — consumo diário vs meta */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-5">
+                <BarChart2 className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-gray-800">Consumo Diário vs Meta</span>
+              </div>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={consumoChartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis
+                    dataKey="data"
+                    tick={{ fontSize: 11, fill: '#9ca3af' }}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#9ca3af' }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={v => `${v} kg`}
+                    width={60}
+                  />
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                    formatter={(v: number) => [
+                      `${v.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} kg/cab`,
+                    ]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="Meta"
+                    stroke="#1a6040"
+                    strokeWidth={2}
+                    strokeDasharray="5 4"
+                    dot={false}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="Consumo"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
           </div>
 
           {/* ── Tabela ── */}
