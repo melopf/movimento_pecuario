@@ -111,7 +111,7 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
     return cat.includes('VACA') && !cat.includes('DESCARTE');
   }, [selectedAnimalId, animalMap, categoriaMap]);
 
-  /* ── Peso simulado acumulado: peso_inicial + gmd × dias (gmd vem do simulador_parametros via SQL) ── */
+  /* ── Peso simulado acumulado: peso_inicial + Σ gmd por dia ── */
   const pesoSimuladoMap = useMemo(() => {
     const map: Record<string, number> = {};
     const sorted = [...records].sort((a, b) => a.data.localeCompare(b.data));
@@ -123,10 +123,10 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
     }
 
     for (const [, rows] of Object.entries(byAnimal)) {
-      const pesoInicial = rows[0]?.peso_estimado ?? 0;
+      let acum = rows[0]?.peso_estimado ?? 0;
       for (const r of rows) {
-        // usa peso_estimado do banco (já calculado com gmd no SQL retroativo)
-        map[`${r.data}_${r.animal_id}`] = r.peso_estimado ?? pesoInicial;
+        acum += r.gmd ?? 0;
+        map[`${r.data}_${r.animal_id}`] = acum;
       }
     }
 
