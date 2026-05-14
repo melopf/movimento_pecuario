@@ -342,13 +342,13 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
 
                         <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
                           <span className="flex items-center gap-1.5">
+                            {r.data.split('-').reverse().join('/')}
                             {lancamentoDates.has(r.data) && (
                               <span
                                 title="Dia de lançamento real"
                                 className="inline-block w-2 h-2 rounded-full bg-green-500 flex-shrink-0"
                               />
                             )}
-                            {r.data.split('-').reverse().join('/')}
                           </span>
                         </td>
 
