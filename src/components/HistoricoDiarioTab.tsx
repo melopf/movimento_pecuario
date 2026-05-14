@@ -243,7 +243,7 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    {['Data', 'Lote', 'Pasto', 'Suplemento', 'Meta kg/cab', 'Consumo kg/cab', 'GMD', 'Peso Est.', 'Status'].map(h => (
+                    {['Data', 'Lote', 'Pasto', 'Suplemento', 'Meta kg/cab', 'Consumo kg/cab', 'Peso Est.', 'Simulado'].map(h => (
                       <th key={h}
                         className="px-4 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                         {h}
@@ -288,10 +288,6 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
                           {fmt(r.consumo_kg_cab)}
                         </td>
 
-                        <td className="px-4 py-2.5 text-xs font-mono text-gray-700 whitespace-nowrap">
-                          {fmt(r.gmd)}
-                        </td>
-
                         <td className="px-4 py-2.5 text-xs font-semibold text-gray-900 whitespace-nowrap">
                           {r.peso_estimado != null
                             ? `${r.peso_estimado.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} kg`
@@ -309,7 +305,7 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
                               ? 'bg-green-50 text-green-700 border border-green-100'
                               : 'bg-gray-100 text-gray-500'
                           }`}>
-                            {r.confirmado ? '✓ Confirmado' : 'Estimado'}
+                            {r.confirmado ? '✓ Confirmado' : 'Simulado'}
                           </span>
                         </td>
 
