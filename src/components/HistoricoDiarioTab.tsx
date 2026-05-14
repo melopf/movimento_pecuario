@@ -91,6 +91,29 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
     [animals],
   );
 
+  /* ── Peso simulado acumulado: peso_inicial + soma de consumo_kg_cab dia a dia ── */
+  const pesoSimuladoMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    const sorted = [...records].sort((a, b) => a.data.localeCompare(b.data));
+
+    // Agrupa por animal para calcular acumulado independente por lote
+    const byAnimal: Record<string, typeof sorted> = {};
+    for (const r of sorted) {
+      if (!byAnimal[r.animal_id]) byAnimal[r.animal_id] = [];
+      byAnimal[r.animal_id].push(r);
+    }
+
+    for (const [, rows] of Object.entries(byAnimal)) {
+      let acum = rows[0]?.peso_estimado ?? 0;
+      for (const r of rows) {
+        acum += r.consumo_kg_cab ?? 0;
+        map[`${r.data}_${r.animal_id}`] = acum;
+      }
+    }
+
+    return map;
+  }, [records]);
+
   /* ── Dados do gráfico: um ponto por data, uma chave por animal ── */
   const { chartData, animalLines } = useMemo(() => {
     const byDate: Record<string, Record<string, number>> = {};
@@ -299,14 +322,13 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
                           )}
                         </td>
 
-                        <td className="px-4 py-2.5">
-                          <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            r.confirmado
-                              ? 'bg-green-50 text-green-700 border border-green-100'
-                              : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {r.confirmado ? '✓ Confirmado' : 'Simulado'}
-                          </span>
+                        <td className="px-4 py-2.5 text-xs font-mono text-teal-700 whitespace-nowrap">
+                          {(() => {
+                            const v = pesoSimuladoMap[`${r.data}_${r.animal_id}`];
+                            return v != null
+                              ? `${v.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`
+                              : '—';
+                          })()}
                         </td>
 
                       </tr>
