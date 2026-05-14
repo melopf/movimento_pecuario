@@ -23,6 +23,8 @@ BEGIN
       de.data::date        AS data_lancamento,
       gs::date             AS dia,
       st.gmd_esperado,
+      st.categoria_simulador,
+      p.qualidade_forragem,
       CASE st.consumo
         WHEN '20 A 30 GRAMAS/100 KG PV'   THEN 0.030
         WHEN '35 A 45 GRAMAS/100 KG PV'   THEN 0.040
@@ -99,22 +101,75 @@ BEGIN
               * COALESCE(a.quantidade, 1))::numeric, 3)
     END                                                               AS meta_kg_total,
     l.consumo_kg_cab,
-    COALESCE(a.gmd, l.gmd_esperado)                                   AS gmd,
-    COALESCE(a.gmd, l.gmd_esperado)                                   AS ganho_dia,
+    -- GMD: manual do animal > simulador_parametros (época+pasto) > gmd_esperado do suplemento
+    COALESCE(
+      a.gmd,
+      CASE UPPER(TRIM(l.qualidade_forragem))
+        WHEN 'ÓTIMA'   THEN sp.gmd_otimo
+        WHEN 'OTIMA'   THEN sp.gmd_otimo
+        WHEN 'BOA'     THEN sp.gmd_bom
+        ELSE                sp.gmd_regular
+      END,
+      l.gmd_esperado
+    )                                                                 AS gmd,
+    COALESCE(
+      a.gmd,
+      CASE UPPER(TRIM(l.qualidade_forragem))
+        WHEN 'ÓTIMA'   THEN sp.gmd_otimo
+        WHEN 'OTIMA'   THEN sp.gmd_otimo
+        WHEN 'BOA'     THEN sp.gmd_bom
+        ELSE                sp.gmd_regular
+      END,
+      l.gmd_esperado
+    )                                                                 AS ganho_dia,
     CASE
-      WHEN COALESCE(a.gmd, l.gmd_esperado) IS NOT NULL
+      WHEN COALESCE(
+             a.gmd,
+             CASE UPPER(TRIM(l.qualidade_forragem))
+               WHEN 'ÓTIMA' THEN sp.gmd_otimo
+               WHEN 'OTIMA' THEN sp.gmd_otimo
+               WHEN 'BOA'   THEN sp.gmd_bom
+               ELSE              sp.gmd_regular
+             END,
+             l.gmd_esperado
+           ) IS NOT NULL
        AND a.data_entrada IS NOT NULL
       THEN ROUND(
-             (COALESCE(a.gmd, l.gmd_esperado)
-              * GREATEST(0, l.dia - a.data_entrada))::numeric, 3)
+             (COALESCE(
+                a.gmd,
+                CASE UPPER(TRIM(l.qualidade_forragem))
+                  WHEN 'ÓTIMA' THEN sp.gmd_otimo
+                  WHEN 'OTIMA' THEN sp.gmd_otimo
+                  WHEN 'BOA'   THEN sp.gmd_bom
+                  ELSE              sp.gmd_regular
+                END,
+                l.gmd_esperado
+              ) * GREATEST(0, l.dia - a.data_entrada))::numeric, 3)
       ELSE 0
     END                                                               AS ganho_acum,
     COALESCE(a.peso_medio, 0) + CASE
-      WHEN COALESCE(a.gmd, l.gmd_esperado) IS NOT NULL
+      WHEN COALESCE(
+             a.gmd,
+             CASE UPPER(TRIM(l.qualidade_forragem))
+               WHEN 'ÓTIMA' THEN sp.gmd_otimo
+               WHEN 'OTIMA' THEN sp.gmd_otimo
+               WHEN 'BOA'   THEN sp.gmd_bom
+               ELSE              sp.gmd_regular
+             END,
+             l.gmd_esperado
+           ) IS NOT NULL
        AND a.data_entrada IS NOT NULL
       THEN ROUND(
-             (COALESCE(a.gmd, l.gmd_esperado)
-              * GREATEST(0, l.dia - a.data_entrada))::numeric, 1)
+             (COALESCE(
+                a.gmd,
+                CASE UPPER(TRIM(l.qualidade_forragem))
+                  WHEN 'ÓTIMA' THEN sp.gmd_otimo
+                  WHEN 'OTIMA' THEN sp.gmd_otimo
+                  WHEN 'BOA'   THEN sp.gmd_bom
+                  ELSE              sp.gmd_regular
+                END,
+                l.gmd_esperado
+              ) * GREATEST(0, l.dia - a.data_entrada))::numeric, 1)
       ELSE 0
     END                                                               AS peso_estimado,
     false                                                             AS confirmado
@@ -123,6 +178,14 @@ BEGIN
     ON  a.farm_id  = l.farm_id
     AND a.pasto_id = l.pasto_id
     AND (a.status = 'ativo' OR a.status IS NULL)
+  -- Época calculada pelo mês do dia: Jul-Out = seca, Nov-Fev = aguas, Mar-Jun = transicao
+  LEFT JOIN simulador_parametros sp
+    ON  sp.categoria = l.categoria_simulador
+    AND sp.epoca = CASE
+      WHEN EXTRACT(MONTH FROM l.dia) BETWEEN 7 AND 10 THEN 'seca'
+      WHEN EXTRACT(MONTH FROM l.dia) IN (11, 12, 1, 2) THEN 'aguas'
+      ELSE 'transicao'
+    END
 
   ON CONFLICT (farm_id, animal_id, data)
   DO UPDATE SET

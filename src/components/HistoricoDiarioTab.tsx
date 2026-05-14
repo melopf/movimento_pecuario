@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { History, Filter, TrendingUp, RefreshCw, BarChart2 } from 'lucide-react';
+import { History, Filter, TrendingUp, RefreshCw, BarChart2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
@@ -89,6 +89,12 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
     () => animals.filter(a => a.status === 'ativo' || !a.status),
     [animals],
   );
+
+  const naoGanhaPeso = useMemo(() => {
+    if (selectedAnimalId === 'all') return false;
+    const a = animalMap[selectedAnimalId];
+    return !!a?.prenha || (a?.bezerros_quantidade ?? 0) > 0;
+  }, [selectedAnimalId, animalMap]);
 
   /* ── Peso simulado acumulado: peso_inicial + soma de consumo_kg_cab dia a dia ── */
   const pesoSimuladoMap = useMemo(() => {
@@ -215,6 +221,16 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
         </div>
       ) : (
         <>
+          {/* ── Banner: vaca prenha / parida não ganha peso ── */}
+          {naoGanhaPeso && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-500" />
+              <span>
+                <strong>Atenção:</strong> vaca prenha ou com bezerros — o animal não ganha mais peso neste período. O consumo de suplemento é registrado normalmente, mas o ganho de peso simulado não se aplica.
+              </span>
+            </div>
+          )}
+
           {/* ── Dois gráficos lado a lado ── */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
 
@@ -256,14 +272,16 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
                     dot={false}
                     connectNulls
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="Ganho Simulado"
-                    stroke="#2563eb"
-                    strokeWidth={2}
-                    dot={false}
-                    connectNulls
-                  />
+                  {!naoGanhaPeso && (
+                    <Line
+                      type="monotone"
+                      dataKey="Ganho Simulado"
+                      stroke="#2563eb"
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </div>
