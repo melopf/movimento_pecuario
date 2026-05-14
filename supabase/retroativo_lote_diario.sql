@@ -180,7 +180,7 @@ BEGIN
     AND (a.status = 'ativo' OR a.status IS NULL)
   -- Época calculada pelo mês do dia: Jul-Out = seca, Nov-Fev = aguas, Mar-Jun = transicao
   LEFT JOIN simulador_parametros sp
-    ON  sp.categoria = l.categoria_simulador
+    ON  UPPER(TRIM(sp.categoria)) = UPPER(TRIM(l.categoria_simulador))
     AND sp.epoca = CASE
       WHEN EXTRACT(MONTH FROM l.dia) BETWEEN 7 AND 10 THEN 'seca'
       WHEN EXTRACT(MONTH FROM l.dia) IN (11, 12, 1, 2) THEN 'aguas'
