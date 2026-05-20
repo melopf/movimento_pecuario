@@ -165,7 +165,7 @@ export function Historico() {
     }));
     const actItems: HistoricoEntry[] = activityLogs.map(a => ({
       id: `a_${a.id}`,
-      source: 'activity',
+      source: 'activity' as const,
       tipo: a.action,
       descricao: a.description,
       user_name: a.user_name || undefined,
@@ -173,7 +173,7 @@ export function Historico() {
       action: a.action,
       created_at: a.created_at,
     }));
-    return [...manejoItems, ...lanItems, ...actItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return [...manejoItems, ...actItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
   }, [manejos, lancamentos, activityLogs]);
 
   const filtered = useMemo(() => {
@@ -493,7 +493,7 @@ export function Historico() {
                           {e.user_name}
                         </span>
                       )}
-                      <p className="text-[10px] text-gray-400">{fmtDate(e.created_at, e.source === 'lancamento')}</p>
+                      <p className="text-[10px] text-gray-400">{fmtDate(e.created_at)}</p>
                     </div>
                   </div>
                 ))}

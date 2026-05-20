@@ -87,13 +87,14 @@ function HistoricoTable({ events, loading }: { events: ManejoEvent[]; loading: b
 
 function LotesTab({
   animals, pastures, categories, onReload, farmName, canEdit = true,
-  suppTypes = [], entries = [], ganhoAcumMap = {},
+  suppTypes = [], entries = [], ganhoAcumMap = {}, userName,
 }: {
   animals: Animal[]; pastures: Pasture[]; categories: AnimalCategory[];
   onReload: () => void; farmName: string; canEdit?: boolean;
   suppTypes?: Array<{ id: string; nome: string; consumo: string | null; gmd_esperado: number | null; categoria_simulador: string | null }>;
   entries?: DataEntry[];
   ganhoAcumMap?: Record<string, { ganho: number; data: string; confirmado: boolean }>;
+  userName?: string;
 }) {
   const [alocarAnimal, setAlocarAnimal] = useState<Animal | null>(null);
   const [pastoSel, setPastoSel] = useState('');
@@ -343,7 +344,7 @@ function LotesTab({
     if (!alocarAnimal || !pastoSel) return;
     setSaving(true);
     try {
-      await manejoService.alocarPasto(alocarAnimal, pastoSel, pastoMap[pastoSel] ?? pastoSel, dataAlocacao);
+      await manejoService.alocarPasto(alocarAnimal, pastoSel, pastoMap[pastoSel] ?? pastoSel, dataAlocacao, userName);
       toast.success(`Lote "${alocarAnimal.nome}" alocado!`);
       setAlocarAnimal(null);
       setDataAlocacao(new Date().toISOString().split('T')[0]);
@@ -1603,9 +1604,9 @@ function DestinoSelector({ destino, setDestino, loteDestId, setLoteDestId, novoN
 }
 
 function EvolucaoTab({
-  animals, categories, farmId, onReload, canEdit = true,
+  animals, categories, farmId, onReload, canEdit = true, userName,
 }: {
-  animals: Animal[]; categories: AnimalCategory[]; farmId: string; onReload: () => void; canEdit?: boolean;
+  animals: Animal[]; categories: AnimalCategory[]; farmId: string; onReload: () => void; canEdit?: boolean; userName?: string;
 }) {
   const [subOp, setSubOp]         = useState<SubOp>('categoria');
   const [saving, setSaving]       = useState(false);
@@ -1686,7 +1687,7 @@ function EvolucaoTab({
       await manejoService.evoluirCategorias(
         selectedAnimals, novaCatId, catOrigemNomes, catMap[novaCatId] ?? novaCatId,
         catPeso ? Number(catPeso) : undefined, catData,
-        catBezPeso ? Number(catBezPeso) : undefined,
+        catBezPeso ? Number(catBezPeso) : undefined, userName,
       );
       if (catPeso) {
         await manejoService.confirmarPesoReal(farmId, selectedAnimals, Number(catPeso), catData);
@@ -1708,7 +1709,7 @@ function EvolucaoTab({
       await manejoService.registrarParicao({
         loteMae, qtdPartos: Number(parQtd),
         pesoMedio: parPeso ? Number(parPeso) : undefined,
-        data: parData, farmId,
+        data: parData, farmId, userName,
       });
       toast.success(`Parição registrada: ${parQtd} bezerro(s) adicionados ao lote!`);
       setParLoteMaeId(''); setParQtd(''); setParPeso('');
@@ -1737,6 +1738,7 @@ function EvolucaoTab({
           : { tipo: 'novo', nome: bezNovoNome.trim(), categoriaId: bezNovoCatId || undefined },
         farmId,
         loteDestinoNome: bezDestino === 'existente' ? (ativos.find(a => a.id === bezLoteDestId)?.nome ?? '') : undefined,
+        userName,
       });
       toast.success(`Desmama registrada: ${bezQtd} cab.!`);
       setBezLoteId(''); setBezQtd(''); setBezPeso(''); setBezLoteDestId(''); setBezNovoNome(''); setBezNovoCatId(''); setBezDestino('novo');
@@ -1751,7 +1753,7 @@ function EvolucaoTab({
     if (!fundirNome.trim()) { toast.error('Informe o nome do lote resultante.'); return; }
     setSaving(true);
     try {
-      await manejoService.fundirLotes(selectedAnimals, fundirNome.trim(), farmId, fundirData);
+      await manejoService.fundirLotes(selectedAnimals, fundirNome.trim(), farmId, fundirData, userName);
       toast.success(`Lotes fundidos em "${fundirNome.trim()}"! (${totalCab} cab.)`);
       setSelected(new Set()); setFundirNome(''); setFundirData(new Date().toISOString().split('T')[0]);
       onReload(); await reloadHistorico();
@@ -2038,9 +2040,9 @@ function EvolucaoTab({
 type TipoSaida = 'abate' | 'venda';
 
 function AbateTab({
-  animals, categories, farmId, onReload, canEdit = true,
+  animals, categories, farmId, onReload, canEdit = true, userName,
 }: {
-  animals: Animal[]; categories: AnimalCategory[]; farmId: string; onReload: () => void; canEdit?: boolean;
+  animals: Animal[]; categories: AnimalCategory[]; farmId: string; onReload: () => void; canEdit?: boolean; userName?: string;
 }) {
   const [tipoSaida, setTipoSaida] = useState<TipoSaida>('abate');
   const [loteId, setLoteId]       = useState('');
@@ -2084,7 +2086,7 @@ function AbateTab({
     if (encerrar && !window.confirm(`Atenção: isso vai encerrar o lote "${lote.nome}". Confirmar?`)) return;
     setSaving(true);
     try {
-      await manejoService.registrarSaida(lote, qtdNum, tipoSaida as 'abate' | 'venda', peso ? Number(peso) : undefined, dataSaida, obs || undefined);
+      await manejoService.registrarSaida(lote, qtdNum, tipoSaida as 'abate' | 'venda', peso ? Number(peso) : undefined, dataSaida, obs || undefined, userName);
       toast.success(`${TIPO_LABELS[tipoSaida]}: ${qtdNum} cab. registrado!${encerrar ? ' Lote encerrado.' : ''}`);
       resetForm();
       onReload();
@@ -2350,7 +2352,7 @@ export function Manejos() {
               {tab === 'lotes' && (
                 <LotesTab animals={animals} pastures={pastures} categories={categories}
                   onReload={reload} farmName={farmName} canEdit={canEdit}
-                  suppTypes={suppTypes} entries={entries} ganhoAcumMap={ganhoAcumMap} />
+                  suppTypes={suppTypes} entries={entries} ganhoAcumMap={ganhoAcumMap} userName={user?.name} />
               )}
               {tab === 'transferir' && (
                 <TransferirTab animals={animals} pastures={pastures}
@@ -2358,10 +2360,10 @@ export function Manejos() {
               )}
               {tab === 'evolucao' && (
                 <EvolucaoTab animals={animals} categories={categories}
-                  farmId={activeFarmId} onReload={reload} canEdit={canEdit} />
+                  farmId={activeFarmId} onReload={reload} canEdit={canEdit} userName={user?.name} />
               )}
               {tab === 'abate' && (
-                <AbateTab animals={animals} categories={categories} farmId={activeFarmId} onReload={reload} canEdit={canEdit} />
+                <AbateTab animals={animals} categories={categories} farmId={activeFarmId} onReload={reload} canEdit={canEdit} userName={user?.name} />
               )}
             </motion.div>
           </AnimatePresence>

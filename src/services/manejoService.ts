@@ -156,6 +156,7 @@ export const manejoService = {
     pastoId: string | null,
     pastoNome: string,
     data?: string,
+    userName?: string,
   ): Promise<void> {
     const { error } = await supabaseAdmin
       .from('animals')
@@ -172,6 +173,7 @@ export const manejoService = {
       descricao:     `Lote "${animal.nome}" ${acao}${dataStr}`,
       pasto_origem:  animal.pasto_id ?? null,
       pasto_destino: pastoId,
+      user_name:     userName ?? null,
     });
   },
 
@@ -182,6 +184,7 @@ export const manejoService = {
     pastoDestinoNome: string,
     data?: string,
     obs?: string,
+    userName?: string,
   ): Promise<void> {
     const { error } = await supabaseAdmin
       .from('animals')
@@ -197,6 +200,7 @@ export const manejoService = {
       descricao:     `Lote "${animal.nome}" transferido de ${pastoOrigemNome} → ${pastoDestinoNome}${dataStr}${obs ? ` · ${obs}` : ''}`,
       pasto_origem:  animal.pasto_id ?? null,
       pasto_destino: pastoDestinoId,
+      user_name:     userName ?? null,
     });
   },
 
@@ -208,6 +212,7 @@ export const manejoService = {
     pesoMedio?: number,
     data?: string,
     bezPesoMedio?: number,
+    userName?: string,
   ): Promise<void> {
     const ids = animals.map(a => a.id);
     const patch: Record<string, unknown> = { categoria_id: novaCategoriaId };
@@ -240,6 +245,7 @@ export const manejoService = {
         categoria_destino: novaCategoriaId,
         quantidade:        a.quantidade,
         peso_medio:        pesoMedio ?? null,
+        user_name:         userName ?? null,
       })
     ));
   },
@@ -251,6 +257,7 @@ export const manejoService = {
     pesoMedio?: number,
     data?: string,
     obs?: string,
+    userName?: string,
   ): Promise<void> {
     const novaQtd = animal.quantidade - quantidade;
     const patch: Record<string, unknown> = { quantidade: novaQtd };
@@ -272,6 +279,7 @@ export const manejoService = {
       descricao:  `${prefixo}: ${quantidade} cab. do lote "${animal.nome}"${pesoMedio ? ` · ${pesoMedio} kg` : ''}${dataStr}${obs ? ` · ${obs}` : ''}${encerrado}`,
       quantidade,
       peso_medio: pesoMedio ?? null,
+      user_name:  userName ?? null,
     });
   },
 
@@ -294,8 +302,9 @@ export const manejoService = {
     destino: { tipo: 'existente'; loteId: string } | { tipo: 'novo'; nome: string; categoriaId?: string };
     farmId: string;
     loteDestinoNome?: string;
+    userName?: string;
   }): Promise<void> {
-    const { loteOrigem, qtd, pesoMedio, data, destino, farmId, loteDestinoNome } = params;
+    const { loteOrigem, qtd, pesoMedio, data, destino, farmId, loteDestinoNome, userName } = params;
 
     // Reduz quantidade do lote de origem
     const novaQtd = loteOrigem.quantidade - qtd;
@@ -339,6 +348,7 @@ export const manejoService = {
       descricao:  `Desagrupamento: ${qtd} cab. do lote "${loteOrigem.nome}"${pesoMedio ? ` · ${pesoMedio} kg` : ''}${dataStr} — ${descrDestino}`,
       quantidade: qtd,
       peso_medio: pesoMedio ?? null,
+      user_name:  userName ?? null,
     });
   },
 
@@ -348,8 +358,9 @@ export const manejoService = {
     pesoMedio?: number;
     data?: string;
     farmId: string;
+    userName?: string;
   }): Promise<void> {
-    const { loteMae, qtdPartos, pesoMedio, data, farmId } = params;
+    const { loteMae, qtdPartos, pesoMedio, data, farmId, userName } = params;
     const novosBez = (loteMae.bezerros_quantidade ?? 0) + qtdPartos;
     const updatePayload: Record<string, unknown> = {
       bezerros_quantidade: novosBez,
@@ -370,6 +381,7 @@ export const manejoService = {
       descricao:  `Parição: ${qtdPartos} bezerro(s) nascido(s) no lote "${loteMae.nome}"${pesoMedio ? ` · ${pesoMedio} kg/cab` : ''}${dataStr} — bezerros ao pé`,
       quantidade: qtdPartos,
       peso_medio: pesoMedio ?? null,
+      user_name:  userName ?? null,
     });
   },
 
@@ -381,8 +393,9 @@ export const manejoService = {
     destino: { tipo: 'existente'; loteId: string } | { tipo: 'novo'; nome: string; categoriaId?: string };
     farmId: string;
     loteDestinoNome?: string;
+    userName?: string;
   }): Promise<void> {
-    const { loteOrigem, qtdBezerros, pesoMedio, data, destino, farmId, loteDestinoNome } = params;
+    const { loteOrigem, qtdBezerros, pesoMedio, data, destino, farmId, loteDestinoNome, userName } = params;
     const dataStr = data ? ` · ${new Date(data + 'T12:00:00').toLocaleDateString('pt-BR')}` : '';
     let descrDestino = '';
 
@@ -424,6 +437,7 @@ export const manejoService = {
       descricao:  `Bezerros: ${qtdBezerros} cab. do lote "${loteOrigem.nome}"${pesoMedio ? ` · ${pesoMedio} kg` : ''}${dataStr} — ${descrDestino}`,
       quantidade: qtdBezerros,
       peso_medio: pesoMedio ?? null,
+      user_name:  userName ?? null,
     });
   },
 
@@ -434,6 +448,7 @@ export const manejoService = {
     novoNome: string,
     farmId: string,
     data?: string,
+    userName?: string,
   ): Promise<void> {
     if (lots.length < 2) throw new Error('Selecione pelo menos 2 lotes para fundir.');
     const [primary, ...others] = lots;
@@ -460,6 +475,7 @@ export const manejoService = {
       tipo:       'fusao',
       descricao:  `Fusão: ${nomesOrig} → "${novoNome}" (${totalQtd} cab.)${dataStr}`,
       quantidade: totalQtd,
+      user_name:  userName ?? null,
     });
   },
 
@@ -470,6 +486,7 @@ export const manejoService = {
     qtd: number,
     farmId: string,
     data?: string,
+    userName?: string,
   ): Promise<void> {
     if (qtd <= 0) throw new Error('Quantidade inválida.');
     if (qtd > origem.quantidade) throw new Error(`Quantidade maior que o disponível no lote (${origem.quantidade} cab.).`);
@@ -489,6 +506,7 @@ export const manejoService = {
       tipo:       'transf_parcial',
       descricao:  `${qtd} cab. transferidas de "${origem.nome}" → "${destino.nome}"${dataStr}`,
       quantidade: qtd,
+      user_name:  userName ?? null,
     });
   },
 
@@ -764,10 +782,49 @@ export const manejoService = {
       .in('data', dates)
       .eq('confirmado', false);
 
-    // 6. Insere um registro por animal×dia
+    // 5b. Atualiza registros confirmados com novo suplemento e meta (preserva peso_real e ganho confirmado)
+    for (const a of animais) {
+      const effective_meta_pct = a.meta_percentagem ?? meta_pct_supp;
+      const fonte_meta_val     = a.meta_percentagem != null ? 'manual' : (meta_pct_supp != null ? 'suplemento' : null);
+      const meta_kg_cab_val    = effective_meta_pct != null && a.peso_medio != null
+        ? parseFloat((a.peso_medio * effective_meta_pct / 100).toFixed(4))
+        : null;
+      const meta_kg_total_val  = meta_kg_cab_val != null
+        ? parseFloat((meta_kg_cab_val * (a.quantidade ?? 1)).toFixed(3))
+        : null;
+      const effectiveGmdConfirm = a.gmd ?? gmd_supp ?? null;
+      await supabaseAdmin
+        .from('lote_diario')
+        .update({
+          suplemento:     lancamento.suplemento,
+          consumo_kg_cab: lancamento.consumo,
+          fonte_meta:     fonte_meta_val,
+          meta_pct:       effective_meta_pct,
+          meta_kg_cab:    meta_kg_cab_val,
+          meta_kg_total:  meta_kg_total_val,
+          gmd:            effectiveGmdConfirm,
+        })
+        .eq('farm_id', farmId)
+        .eq('animal_id', a.id)
+        .in('data', dates)
+        .eq('confirmado', true);
+    }
+
+    // 6. Descobre quais datas já têm registro confirmado (não deve duplicar)
+    const { data: confirmados } = await supabaseAdmin
+      .from('lote_diario')
+      .select('animal_id, data')
+      .eq('farm_id', farmId)
+      .in('animal_id', animalIds)
+      .in('data', dates)
+      .eq('confirmado', true);
+    const confirmedSet = new Set((confirmados ?? []).map((r: { animal_id: string; data: string }) => `${r.animal_id}|${r.data}`));
+
+    // 7. Insere um registro por animal×dia apenas para datas sem confirmado
     const allRecords: object[] = [];
     for (const dayStr of dates) {
       for (const a of animais) {
+        if (confirmedSet.has(`${a.id}|${dayStr}`)) continue;
         const effectiveGmd = a.gmd ?? gmd_supp ?? 0;
         const dataRef = a.data_entrada ?? dayStr;
         const dias = Math.max(0, Math.floor(
