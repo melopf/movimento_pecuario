@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   ClipboardList, MapPin, ArrowRight, TrendingUp, Scissors,
   X, Save, RefreshCw, ChevronDown, AlertTriangle, History, Baby, Milk, Search, FileText, GitMerge,
-  LayoutGrid, List, Edit2,
+  LayoutGrid, List,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useData } from '../context/DataContext';
@@ -110,15 +110,6 @@ function LotesTab({
     }
   }
 
-  async function handleGmdSave(animalId: string, gmd: number | null) {
-    try {
-      await manejoService.atualizarGmd(animalId, gmd);
-      onReload();
-    } catch {
-      toast.error('Erro ao salvar GMD.');
-    }
-  }
-
   // ── View mode toggle ──
   const [viewMode, setViewMode] = useState<'lista' | 'card'>(() => {
     return (localStorage.getItem('manejos_view_mode') as 'lista' | 'card') ?? 'card';
@@ -146,33 +137,6 @@ function LotesTab({
   // Normaliza nome de pasto: remove espaços extras e converte para maiúsculas
   // Evita quebra de lookup por diferença de digitação entre data_entries e pastures
   const norm = (s: string) => s.trim().toUpperCase();
-
-  // Mapa: nome do pasto → gmd_esperado do suplemento mais recente lançado nele
-  const pastoGmdMap = useMemo(() => {
-    const suppGmdByNome: Record<string, number | null> = {};
-    for (const s of suppTypes) suppGmdByNome[s.nome] = s.gmd_esperado ?? null;
-    const suppIsCreep: Record<string, boolean> = {};
-    for (const s of suppTypes) {
-      suppIsCreep[s.nome] = s.categoria_simulador === 'Ração Creep' || s.nome.toLowerCase().includes('creep');
-    }
-    // Apenas entradas NÃO-Creep → GMD dos animais adultos
-    const latestByPasto: Record<string, string> = {};
-    const suppForPasto: Record<string, string> = {};
-    for (const e of entries) {
-      if (!e.pasto || !e.data || !e.tipo || suppIsCreep[e.tipo]) continue;
-      const k = norm(e.pasto);
-      if (!latestByPasto[k] || e.data > latestByPasto[k]) {
-        latestByPasto[k] = e.data;
-        suppForPasto[k] = e.tipo;
-      }
-    }
-    const result: Record<string, number> = {};
-    for (const [k, suppNome] of Object.entries(suppForPasto)) {
-      const gmd = suppGmdByNome[suppNome];
-      if (gmd && gmd > 0) result[k] = gmd;
-    }
-    return result;
-  }, [suppTypes, entries]);
 
   // GMD do Creep para bezerros (separado do GMD adulto)
   const pastoGmdCreepMap = useMemo(() => {
@@ -203,7 +167,7 @@ function LotesTab({
 
   // Mapa: norm(pasto_nome) → consumoPct (%) do suplemento adulto mais recente (exclui Creep)
   // + diagnóstico: norm(pasto_nome) → nome do suplemento detectado (mesmo sem consumo cadastrado)
-  const { pastoNomeMetaMap, pastoSuppDetectadoMap } = useMemo(() => {
+  const pastoNomeMetaMap = useMemo(() => {
     const suppByNome: Record<string, string | null> = {};
     for (const s of suppTypes) suppByNome[s.nome] = s.consumo;
     const suppIsCreep: Record<string, boolean> = {};
@@ -211,7 +175,6 @@ function LotesTab({
       suppIsCreep[s.nome] = s.categoria_simulador === 'Ração Creep' || s.nome.toLowerCase().includes('creep');
     }
 
-    // Considera apenas entradas NÃO-Creep (suplemento dos animais adultos)
     const latestByPasto: Record<string, string> = {};
     const suppForPasto: Record<string, string> = {};
     for (const e of entries) {
@@ -225,9 +188,7 @@ function LotesTab({
     }
 
     const metaMap: Record<string, number> = {};
-    const detectadoMap: Record<string, string> = {};
     for (const [k, suppNome] of Object.entries(suppForPasto)) {
-      detectadoMap[k] = suppNome;
       const consumo = suppByNome[suppNome] ?? null;
       if (!consumo) continue;
       const pctStr = META_CONSUMO[consumo] ?? null;
@@ -235,7 +196,7 @@ function LotesTab({
       const pct = parseFloat(pctStr.replace('%', '').replace(',', '.'));
       if (!isNaN(pct) && pct > 0) metaMap[k] = pct;
     }
-    return { pastoNomeMetaMap: metaMap, pastoSuppDetectadoMap: detectadoMap };
+    return metaMap;
   }, [suppTypes, entries]);
 
   // Mapa: norm(pasto_nome) → consumo% do Creep mais recente (para bezerros)
@@ -360,25 +321,19 @@ function LotesTab({
     const [draft, setDraft] = useState('');
     const [editMode, setEditMode] = useState(false); // desbloqueia input antes de salvar no banco
     const inputRef = useRef<HTMLInputElement>(null);
-    const [gmdDraft, setGmdDraft] = useState('');
     // Quando o banco confirma o novo valor, sai do editMode e limpa o draft
     useEffect(() => { setDraft(''); setEditMode(false); }, [a.meta_percentagem]);
-    useEffect(() => { setGmdDraft(''); }, [a.gmd]);
 
     // META do suplemento para o pasto deste lote (via closure)
     const pastoNome    = a.pasto_id ? (pastoMap[a.pasto_id] ?? '') : '';
 
-    // GMD e meta separados: adultos usam suplemento adulto, bezerros usam Creep
     const nPasto         = norm(pastoNome);
-    const creepGmd       = pastoGmdCreepMap[nPasto] ?? null;
 
     // Meta adulto = suplemento não-Creep do pasto (mapa já exclui Creep)
-    const pastoMetaPct       = pastoNomeMetaMap[nPasto] ?? null;
-    const suppDetectado      = pastoSuppDetectadoMap[nPasto] ?? null; // diagnóstico
+    const pastoMetaPct   = pastoNomeMetaMap[nPasto] ?? null;
 
-    // Creep meta para bezerros + dias acumulados
-    const creepMetaPct  = pastoCreepMetaMap[nPasto] ?? null;
-    const diasConsumo   = pastoDiasConsumoMap[nPasto] ?? null;
+    // Creep meta para bezerros
+    const creepMetaPct   = pastoCreepMetaMap[nPasto] ?? null;
 
     // isAuto: sem valor manual E não está em modo de edição
     const isAuto    = a.meta_percentagem == null && !editMode;
