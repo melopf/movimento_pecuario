@@ -27,17 +27,18 @@ export type ClientInfo = Farm;
 
 function toDataEntry(row: Record<string, unknown>): DataEntry {
   return {
-    id:          row.id as string,
-    data:        row.data as string,
-    pasto:       (row.pasto_nome as string) ?? '',
-    quantidade:  row.quantidade as number,
-    tipo:        row.suplemento as string,
-    periodo:     row.periodo as number,
-    sacos:       (row.sacos as number) ?? 0,
-    kg:          row.kg as number,
-    consumo:     row.consumo as number,
-    funcionario: (row.funcionario as string) ?? undefined,
-    lote:        (row.lote as string) ?? undefined,
+    id:                  row.id as string,
+    data:                row.data as string,
+    pasto:               (row.pasto_nome as string) ?? '',
+    quantidade:          row.quantidade as number,
+    tipo:                row.suplemento as string,
+    supplement_type_id:  (row.supplement_type_id as string) ?? undefined,
+    periodo:             row.periodo as number,
+    sacos:               (row.sacos as number) ?? 0,
+    kg:                  row.kg as number,
+    consumo:             row.consumo as number,
+    funcionario:         (row.funcionario as string) ?? undefined,
+    lote:                (row.lote as string) ?? undefined,
   };
 }
 
@@ -272,16 +273,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const dataLanc = entry.data || new Date().toISOString().split('T')[0];
     const pastureId = pastures.find(p => p.nome === entry.pasto)?.id ?? null;
     supabaseAdmin.from('data_entries').insert({
-      farm_id:     activeFarmId,
-      data:        dataLanc,
-      pasto_id:    pastureId,
-      pasto_nome:  entry.pasto,
-      suplemento:  entry.tipo,
-      quantidade:  entry.quantidade,
-      periodo:     entry.periodo,
-      sacos:       entry.sacos,
-      kg:          entry.kg,
-      consumo:     entry.consumo,
+      farm_id:             activeFarmId,
+      data:                dataLanc,
+      pasto_id:            pastureId,
+      pasto_nome:          entry.pasto,
+      suplemento:          entry.tipo,
+      supplement_type_id:  entry.supplement_type_id ?? null,
+      quantidade:          entry.quantidade,
+      periodo:             entry.periodo,
+      sacos:               entry.sacos,
+      kg:                  entry.kg,
+      consumo:             entry.consumo,
       ...(entry.funcionario ? { funcionario: entry.funcionario } : {}),
       ...(entry.lote        ? { lote:        entry.lote }        : {}),
     }).select().single().then(({ data, error }) => {
@@ -290,11 +292,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       // Retroativo: popula lote_diario para cada dia do período deste lançamento
       if (!error && activeFarmId && entry.pasto && entry.tipo) {
         manejoService.upsertDiarioByLancamento(activeFarmId, {
-          pasto_id:   pastureId ?? undefined,
-          pasto_nome: entry.pasto,
-          suplemento: entry.tipo,
-          data: dataLanc,
-          periodo: entry.periodo,
+          pasto_id:           pastureId ?? undefined,
+          pasto_nome:         entry.pasto,
+          suplemento:         entry.tipo,
+          supplement_type_id: entry.supplement_type_id,
+          data:               dataLanc,
+          periodo:            entry.periodo,
           consumo: entry.quantidade > 0 ? parseFloat((entry.kg / entry.quantidade).toFixed(4)) : 0,
         }).catch(() => {});
       }

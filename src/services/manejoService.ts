@@ -716,12 +716,13 @@ export const manejoService = {
   async upsertDiarioByLancamento(
     farmId: string,
     lancamento: {
-      pasto_id?:  string;  // UUID — quando disponível, evita lookup por nome
-      pasto_nome: string;
-      suplemento: string;
-      data: string;
-      periodo: number;
-      consumo: number;
+      pasto_id?:           string;
+      pasto_nome:          string;
+      suplemento:          string;
+      supplement_type_id?: string;  // UUID — join por ID em vez de nome
+      data:                string;
+      periodo:             number;
+      consumo:             number;
     },
   ): Promise<void> {
     const n = (s: string) => s.trim().toUpperCase();
@@ -737,12 +738,14 @@ export const manejoService = {
     }
     if (!pasto) return;
 
-    // 2. Resolve meta_pct e gmd via supplement_types
+    // 2. Resolve meta_pct e gmd — por ID quando disponível, fallback por nome
     const { data: suppTypes } = await supabaseAdmin
       .from('supplement_types')
-      .select('nome, consumo, gmd_esperado')
+      .select('id, nome, consumo, gmd_esperado')
       .eq('farm_id', farmId);
-    const supp = (suppTypes ?? []).find(s => n(s.nome) === n(lancamento.suplemento));
+    const supp = lancamento.supplement_type_id
+      ? (suppTypes ?? []).find(s => s.id === lancamento.supplement_type_id)
+      : (suppTypes ?? []).find(s => n(s.nome) === n(lancamento.suplemento));
     let meta_pct_supp: number | null = null;
     let gmd_supp: number | null = null;
     if (supp) {

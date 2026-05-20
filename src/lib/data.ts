@@ -1,18 +1,19 @@
 export interface DataEntry {
-  id?: string;          // UUID do Supabase
-  data?: string;        // YYYY-MM-DD
+  id?: string;                   // UUID do Supabase
+  data?: string;                 // YYYY-MM-DD
   pasto: string;
   quantidade: number;
   tipo: string;
+  supplement_type_id?: string;   // UUID de supplement_types — vínculo por ID, não por nome
   periodo: number;
   sacos: number;
   kg: number;
-  consumo: number;      // kg/cab/dia = kg / (quantidade * periodo)
-  funcionario?: string; // nome do funcionário responsável
-  lote?: string;        // nome(s) do lote animal no pasto
-  meta?: number;        // META kg/cab/dia = peso_medio_pasto × consumo_pct / 100
-  metaLabel?: string;   // META formatada ex: "0,040%" para exibição na coluna
-  desembolso?: number;  // R$/cab/dia = consumo × valor_kg
+  consumo: number;               // kg/cab/dia = kg / (quantidade * periodo)
+  funcionario?: string;
+  lote?: string;
+  meta?: number;
+  metaLabel?: string;
+  desembolso?: number;
 }
 
 export const META_CONSUMO: Record<string, string> = {

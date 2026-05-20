@@ -355,16 +355,17 @@ export function Formulario() {
 
     if (adultoPreenchido) {
       const entry: DataEntry = {
-        pasto:        data.pasto,
-        quantidade:   qtdAdulto,
-        tipo:         data.tipo,
-        periodo:      0,
-        data:         data.data,
-        sacos:        Number(data.sacos),
-        kg:           kgCalculado,
-        consumo:      0,
-        funcionario:  data.funcionario || undefined,
-        lote:         lotesNomes,
+        pasto:               data.pasto,
+        quantidade:          qtdAdulto,
+        tipo:                data.tipo,
+        supplement_type_id:  supplementTypes.find(s => s.nome === data.tipo)?.id,
+        periodo:             0,
+        data:                data.data,
+        sacos:               Number(data.sacos),
+        kg:                  kgCalculado,
+        consumo:             0,
+        funcionario:         data.funcionario || undefined,
+        lote:                lotesNomes,
       };
       addEntry(entry);
       toast.success('Registro adicionado!', { description: `${entry.pasto} — ${entry.tipo}` });
@@ -380,16 +381,17 @@ export function Formulario() {
 
     if (data.tipoBez && Number(data.sacosBez) > 0 && pastoInfo && pastoInfo.totalBez > 0) {
       const entryBez: DataEntry = {
-        pasto:       data.pasto,
-        quantidade:  pastoInfo.totalBez,
-        tipo:        data.tipoBez,
-        periodo:     0,
-        data:        data.data,
-        sacos:       Number(data.sacosBez),
-        kg:          kgCalculadoBez,
-        consumo:     0,
-        funcionario: data.funcionario || undefined,
-        lote:        lotesNomes,
+        pasto:               data.pasto,
+        quantidade:          pastoInfo.totalBez,
+        tipo:                data.tipoBez,
+        supplement_type_id:  supplementTypes.find(s => s.nome === data.tipoBez)?.id,
+        periodo:             0,
+        data:                data.data,
+        sacos:               Number(data.sacosBez),
+        kg:                  kgCalculadoBez,
+        consumo:             0,
+        funcionario:         data.funcionario || undefined,
+        lote:                lotesNomes,
       };
       addEntry(entryBez);
       toast.success('Bezerros adicionados!', { description: `${entryBez.pasto} — ${entryBez.tipo} (${fmtInt(pastoInfo.totalBez)} bez.)` });

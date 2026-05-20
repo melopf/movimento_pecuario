@@ -24,6 +24,7 @@ BEGIN
       de.pasto_nome,
       de.pasto_id,
       de.suplemento,
+      de.supplement_type_id,
       de.data::date                             AS data_lancamento,
       de.kg,
       de.quantidade,
@@ -70,7 +71,11 @@ BEGIN
       )
     LEFT JOIN supplement_types st
       ON  st.farm_id = lcp.farm_id
-      AND UPPER(TRIM(st.nome)) = UPPER(TRIM(lcp.suplemento))
+      AND (
+        (lcp.supplement_type_id IS NOT NULL AND st.id = lcp.supplement_type_id)
+        OR
+        (lcp.supplement_type_id IS NULL AND UPPER(TRIM(st.nome)) = UPPER(TRIM(lcp.suplemento)))
+      )
     -- Série RETROATIVA: do (data - periodo + 1) até a data do lançamento
     CROSS JOIN LATERAL generate_series(
       lcp.data_lancamento - lcp.periodo_efetivo + 1,
