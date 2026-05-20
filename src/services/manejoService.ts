@@ -773,14 +773,31 @@ export const manejoService = {
 
     const animalIds = animais.map(a => a.id);
 
-    // 5. Remove registros não confirmados para esses animais nas datas do período
-    await supabaseAdmin
-      .from('lote_diario')
-      .delete()
-      .eq('farm_id', farmId)
-      .in('animal_id', animalIds)
-      .in('data', dates)
-      .eq('confirmado', false);
+    // 5. Atualiza registros NÃO confirmados com novos dados do suplemento (sem deletar — preserva o histórico)
+    for (const a of animais) {
+      const effectiveGmd = a.gmd ?? gmd_supp ?? null;
+      const effective_meta_pct = a.meta_percentagem ?? meta_pct_supp;
+      const fonte_meta_val = a.meta_percentagem != null ? 'manual' : (meta_pct_supp != null ? 'suplemento' : null);
+      const meta_kg_cab_val = effective_meta_pct != null && a.peso_medio != null
+        ? parseFloat((a.peso_medio * effective_meta_pct / 100).toFixed(4)) : null;
+      const meta_kg_total_val = meta_kg_cab_val != null
+        ? parseFloat((meta_kg_cab_val * (a.quantidade ?? 1)).toFixed(3)) : null;
+      await supabaseAdmin
+        .from('lote_diario')
+        .update({
+          suplemento:     lancamento.suplemento,
+          consumo_kg_cab: lancamento.consumo,
+          fonte_meta:     fonte_meta_val,
+          meta_pct:       effective_meta_pct,
+          meta_kg_cab:    meta_kg_cab_val,
+          meta_kg_total:  meta_kg_total_val,
+          gmd:            effectiveGmd,
+        })
+        .eq('farm_id', farmId)
+        .eq('animal_id', a.id)
+        .in('data', dates)
+        .eq('confirmado', false);
+    }
 
     // 5b. Atualiza registros confirmados com novo suplemento/gmd/consumo — NÃO toca em meta (acumula só a partir da ativação)
     for (const a of animais) {
@@ -798,15 +815,14 @@ export const manejoService = {
         .eq('confirmado', true);
     }
 
-    // 6. Descobre quais datas já têm registro confirmado (não deve duplicar)
-    const { data: confirmados } = await supabaseAdmin
+    // 6. Descobre quais datas já têm qualquer registro (confirmado ou não) — não duplicar
+    const { data: existentes } = await supabaseAdmin
       .from('lote_diario')
       .select('animal_id, data')
       .eq('farm_id', farmId)
       .in('animal_id', animalIds)
-      .in('data', dates)
-      .eq('confirmado', true);
-    const confirmedSet = new Set((confirmados ?? []).map((r: { animal_id: string; data: string }) => `${r.animal_id}|${r.data}`));
+      .in('data', dates);
+    const confirmedSet = new Set((existentes ?? []).map((r: { animal_id: string; data: string }) => `${r.animal_id}|${r.data}`));
 
     // 7. Insere um registro por animal×dia apenas para datas sem confirmado
     const allRecords: object[] = [];
