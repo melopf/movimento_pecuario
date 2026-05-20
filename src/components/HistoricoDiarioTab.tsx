@@ -73,8 +73,14 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
     [animals],
   );
 
-  const ativos = useMemo(
-    () => animals.filter(a => a.status === 'ativo' || !a.status),
+  const allAnimals = useMemo(
+    () => [...animals].sort((a, b) => {
+      const aAtivo = a.status === 'ativo' || !a.status;
+      const bAtivo = b.status === 'ativo' || !b.status;
+      if (aAtivo && !bAtivo) return -1;
+      if (!aAtivo && bAtivo) return 1;
+      return a.nome.localeCompare(b.nome);
+    }),
     [animals],
   );
 
@@ -82,6 +88,14 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
     () => Object.fromEntries(categorias.map(c => [c.id, c.nome.toUpperCase().trim()])),
     [categorias],
   );
+
+  const selectedAnimal = animalMap[selectedAnimalId];
+  const isInactive = !!(selectedAnimal && selectedAnimal.status !== 'ativo' && selectedAnimal.status != null);
+
+  const lastRecordDate = useMemo(() => {
+    if (!records.length) return null;
+    return [...records].sort((a, b) => b.data.localeCompare(a.data))[0].data;
+  }, [records]);
 
   // Vaca Descarte: mostra histórico normal. Qualquer outra "VACA *": peso estabilizado.
   const naoGanhaPeso = useMemo(() => {
@@ -160,9 +174,14 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
                        focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
           >
             <option value="all">Todos os lotes</option>
-            {ativos.map(a => (
-              <option key={a.id} value={a.id}>{a.nome}</option>
-            ))}
+            {allAnimals.map(a => {
+              const ativo = a.status === 'ativo' || !a.status;
+              return (
+                <option key={a.id} value={a.id}>
+                  {a.nome}{!ativo ? ' (saído)' : ''}
+                </option>
+              );
+            })}
           </select>
 
           <div className="flex gap-1">
@@ -210,6 +229,19 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
         </div>
       ) : (
         <>
+          {/* ── Banner: lote inativo / saído ── */}
+          {isInactive && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-orange-50 border border-orange-200 text-orange-800 text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-orange-500" />
+              <span>
+                <strong>Lote inativo:</strong> Este lote não tem mais animais registrados neste pasto.
+                {lastRecordDate && (
+                  <> Último registro: <strong>{lastRecordDate.split('-').reverse().join('/')}</strong>.</>
+                )}
+              </span>
+            </div>
+          )}
+
           {/* ── Banner: vaca prenha / parida não ganha peso ── */}
           {naoGanhaPeso && (
             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">

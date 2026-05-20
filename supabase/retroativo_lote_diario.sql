@@ -61,7 +61,9 @@ BEGIN
         WHEN '1,0 A 1,50% PV'             THEN 1.300
         WHEN '1,50 A 2,30% PV'            THEN 2.000
         ELSE NULL
-      END                  AS meta_pct_supp
+      END                  AS meta_pct_supp,
+      lcp.kg               AS kg_lancamento,
+      lcp.periodo_efetivo
     FROM lancamentos_com_periodo lcp
     JOIN pastures p
       ON  p.farm_id = lcp.farm_id
@@ -71,11 +73,21 @@ BEGIN
       )
     LEFT JOIN supplement_types st
       ON  st.farm_id = lcp.farm_id
-      AND (
-        (lcp.supplement_type_id IS NOT NULL AND st.id = lcp.supplement_type_id)
-        OR
-        (lcp.supplement_type_id IS NULL AND UPPER(TRIM(st.nome)) = UPPER(TRIM(lcp.suplemento)))
-      )
+      AND st.id = COALESCE(
+            -- 1. UUID exato (preferencial)
+            lcp.supplement_type_id,
+            -- 2. Nome exato case-insensitive
+            (SELECT s.id FROM supplement_types s
+             WHERE  s.farm_id = lcp.farm_id
+               AND  UPPER(TRIM(s.nome)) = UPPER(TRIM(lcp.suplemento))
+             LIMIT 1),
+            -- 3. Fuzzy: remove tudo que não for letra/número
+            (SELECT s.id FROM supplement_types s
+             WHERE  s.farm_id = lcp.farm_id
+               AND  REGEXP_REPLACE(UPPER(TRIM(s.nome)), '[^A-Z0-9]', '', 'g') =
+                    REGEXP_REPLACE(UPPER(TRIM(lcp.suplemento)), '[^A-Z0-9]', '', 'g')
+             LIMIT 1)
+          )
     -- Série RETROATIVA: do (data - periodo + 1) até a data do lançamento
     CROSS JOIN LATERAL generate_series(
       lcp.data_lancamento - lcp.periodo_efetivo + 1,
@@ -124,7 +136,14 @@ BEGIN
              (a.peso_medio * COALESCE(a.meta_percentagem, l.meta_pct_supp) / 100.0
               * COALESCE(a.quantidade, 1))::numeric, 3)
     END                                                               AS meta_kg_total,
-    l.consumo_kg_cab,
+    COALESCE(
+      l.consumo_kg_cab,
+      CASE
+        WHEN a.quantidade > 0 AND COALESCE(l.kg_lancamento, 0) > 0
+         AND NULLIF(l.periodo_efetivo, 0) IS NOT NULL
+        THEN ROUND((l.kg_lancamento::numeric / a.quantidade / l.periodo_efetivo)::numeric, 4)
+      END
+    )                                                                 AS consumo_kg_cab,
     COALESCE(
       a.gmd,
       CASE UPPER(TRIM(l.qualidade_forragem))

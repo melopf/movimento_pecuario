@@ -23,4 +23,3 @@ SELECT
   COUNT(supplement_type_id)                         AS com_id,
   COUNT(*) - COUNT(supplement_type_id)              AS sem_id
 FROM data_entries;
-1
