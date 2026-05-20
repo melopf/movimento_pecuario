@@ -782,26 +782,14 @@ export const manejoService = {
       .in('data', dates)
       .eq('confirmado', false);
 
-    // 5b. Atualiza registros confirmados com novo suplemento e meta (preserva peso_real e ganho confirmado)
+    // 5b. Atualiza registros confirmados com novo suplemento/gmd/consumo — NÃO toca em meta (acumula só a partir da ativação)
     for (const a of animais) {
-      const effective_meta_pct = a.meta_percentagem ?? meta_pct_supp;
-      const fonte_meta_val     = a.meta_percentagem != null ? 'manual' : (meta_pct_supp != null ? 'suplemento' : null);
-      const meta_kg_cab_val    = effective_meta_pct != null && a.peso_medio != null
-        ? parseFloat((a.peso_medio * effective_meta_pct / 100).toFixed(4))
-        : null;
-      const meta_kg_total_val  = meta_kg_cab_val != null
-        ? parseFloat((meta_kg_cab_val * (a.quantidade ?? 1)).toFixed(3))
-        : null;
       const effectiveGmdConfirm = a.gmd ?? gmd_supp ?? null;
       await supabaseAdmin
         .from('lote_diario')
         .update({
           suplemento:     lancamento.suplemento,
           consumo_kg_cab: lancamento.consumo,
-          fonte_meta:     fonte_meta_val,
-          meta_pct:       effective_meta_pct,
-          meta_kg_cab:    meta_kg_cab_val,
-          meta_kg_total:  meta_kg_total_val,
           gmd:            effectiveGmdConfirm,
         })
         .eq('farm_id', farmId)

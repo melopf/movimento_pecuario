@@ -402,8 +402,7 @@ function LotesTab({
             <div className="flex flex-col gap-1">
               {/* Linha 1: toggle + input + % */}
               <div className="flex items-center gap-1.5">
-                {pastoMetaPct != null ? (
-                  <button
+                <button
                     onClick={async () => {
                       if (!isAuto) {
                         setEditMode(false);
@@ -411,28 +410,15 @@ function LotesTab({
                         await handleMetaSave(a.id, null);
                       } else {
                         setEditMode(true);
-                        setDraft(String(pastoMetaPct));
+                        setDraft(pastoMetaPct != null ? String(pastoMetaPct) : '');
                         setTimeout(() => inputRef.current?.focus(), 30);
                       }
                     }}
                     title={isAuto ? 'AUTO (suplemento) — clique para definir manualmente' : 'Manual — clique para usar automático'}
-                    className={`flex-shrink-0 w-7 h-4 rounded-full transition-colors relative ${isAuto ? 'bg-teal-500' : 'bg-gray-300'}`}
+                    className={`flex-shrink-0 w-7 h-4 rounded-full transition-colors relative ${isAuto && pastoMetaPct != null ? 'bg-teal-500' : 'bg-gray-300'}`}
                   >
                     <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${isAuto ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
                   </button>
-                ) : (
-                  !editMode && a.meta_percentagem == null && (
-                    <button
-                      onClick={() => { setEditMode(true); setTimeout(() => inputRef.current?.focus(), 30); }}
-                      title={suppDetectado
-                        ? `Supl. detectado: ${suppDetectado}\n% consumo não cadastrado — insira manualmente`
-                        : `Sem lançamento detectado para este pasto — insira manualmente`}
-                      className="flex-shrink-0 text-gray-300 hover:text-blue-400 transition-colors"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                    </button>
-                  )
-                )}
                 <input
                   ref={inputRef}
                   type="number" step="0.1" min="0" max="100"
@@ -462,67 +448,6 @@ function LotesTab({
                 <span className={`text-xs font-bold ${isAuto ? 'text-teal-700' : 'text-blue-700'}`}>
                   %={meta.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} KG
                 </span>
-              )}
-            </div>
-          </td>
-          <td className="px-4 py-2.5">
-            <div>
-              {(() => {
-                const hist = ganhoAcumMap[a.id];
-                if (hist) {
-                  return (
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <p className="text-xs font-bold" style={{ color: '#1a6040' }}>
-                          {hist.ganho.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
-                        </p>
-                        {hist.confirmado && (
-                          <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-green-100 text-green-700">✓</span>
-                        )}
-                      </div>
-                      <p className="text-[9px] text-gray-400">{a.gmd ? `${a.gmd} kg/d` : ''}</p>
-                    </div>
-                  );
-                }
-                // Se é pasto Creep, o GMD do suplemento é só para bezerros — adultos usam apenas gmd individual
-                const effectiveGmd = a.gmd ?? (pastoGmdMap[nPasto] ?? null);
-                const gmdInput = (
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-[9px] text-gray-400 w-8">GMD:</span>
-                    <input
-                      type="number" step="0.01" min="0"
-                      value={gmdDraft !== '' ? gmdDraft : (a.gmd != null ? String(a.gmd) : '')}
-                      placeholder={effectiveGmd ? String(effectiveGmd) : 'kg/d'}
-                      onChange={e => setGmdDraft(e.target.value)}
-                      onBlur={async () => {
-                        if (gmdDraft === '' && a.gmd == null) return;
-                        const val = gmdDraft === '' ? null : parseFloat(gmdDraft);
-                        if (val !== null && isNaN(val)) return;
-                        await handleGmdSave(a.id, val);
-                      }}
-                      className="w-14 h-5 px-1 text-[10px] rounded text-center border border-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-400 text-gray-600 bg-white"
-                    />
-                    <span className="text-[9px] text-gray-400">kg/d</span>
-                  </div>
-                );
-                if (effectiveGmd && a.data_entrada) {
-                  const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada).getTime()) / 86_400_000));
-                  return (
-                    <div>
-                      <p className="text-xs font-bold text-gray-400">
-                        {(effectiveGmd * dias).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
-                      </p>
-                      <p className="text-[9px] text-gray-400">{dias}d · {effectiveGmd} kg/d</p>
-                      {gmdInput}
-                    </div>
-                  );
-                }
-                return <div><span className="text-xs text-gray-300">—</span>{gmdInput}</div>;
-              })()}
-              {diasConsumo != null && (
-                <p className="text-[9px] text-teal-600 font-medium mt-1">
-                  {diasConsumo}d supl.{meta != null ? ` · ${(diasConsumo * meta).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg acum.` : ''}
-                </p>
               )}
             </div>
           </td>
@@ -563,32 +488,6 @@ function LotesTab({
                 );
               })()}
             </td>
-            <td className="px-4 py-1.5">
-              <div>
-                {creepGmd && a.data_entrada ? (() => {
-                  const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada).getTime()) / 86_400_000));
-                  const bezMeta = creepMetaPct && a.bezerros_peso_medio ? a.bezerros_peso_medio * creepMetaPct / 100 : null;
-                  return (
-                    <div>
-                      <p className="text-xs font-bold text-orange-600">
-                        {(creepGmd * dias).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
-                      </p>
-                      <p className="text-[9px] text-orange-400">{dias}d · {creepGmd} kg/d</p>
-                      <p className="text-[8px] text-orange-300 font-medium uppercase tracking-wide">Creep</p>
-                      {bezMeta != null && diasConsumo != null && (
-                        <p className="text-[9px] text-orange-500 font-medium mt-0.5">
-                          {diasConsumo}d supl. · {(diasConsumo * bezMeta).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg acum.
-                        </p>
-                      )}
-                    </div>
-                  );
-                })() : (
-                  diasConsumo != null && (
-                    <p className="text-[9px] text-orange-400">{diasConsumo}d supl.</p>
-                  )
-                )}
-              </div>
-            </td>
             <td className="no-print" />
           </tr>
         )}
@@ -603,8 +502,8 @@ function LotesTab({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Lote', 'Categoria', 'Cabeças', 'Peso Médio', '% Meta', 'Meta Acum.', 'Sexo', ''].map((h, i) => (
-                  <th key={h} className={`px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider${h === '% Meta' ? ' text-blue-400' : h === 'Meta Acum.' ? ' text-teal-600' : ' text-gray-500'}${i === 7 ? ' no-print' : ''}`}>{h}</th>
+                {['Lote', 'Categoria', 'Cabeças', 'Peso Médio', '% Meta', 'Sexo', ''].map((h, i) => (
+                  <th key={h} className={`px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider${h === '% Meta' ? ' text-blue-400' : ' text-gray-500'}${i === 6 ? ' no-print' : ''}`}>{h}</th>
                 ))}
               </tr>
             </thead>
