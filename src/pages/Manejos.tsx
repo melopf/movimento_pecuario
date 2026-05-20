@@ -138,33 +138,6 @@ function LotesTab({
   // Evita quebra de lookup por diferença de digitação entre data_entries e pastures
   const norm = (s: string) => s.trim().toUpperCase();
 
-  // GMD do Creep para bezerros (separado do GMD adulto)
-  const pastoGmdCreepMap = useMemo(() => {
-    const suppGmdByNome: Record<string, number | null> = {};
-    for (const s of suppTypes) suppGmdByNome[s.nome] = s.gmd_esperado ?? null;
-    const suppIsCreep: Record<string, boolean> = {};
-    for (const s of suppTypes) {
-      suppIsCreep[s.nome] = s.categoria_simulador === 'Ração Creep' || s.nome.toLowerCase().includes('creep');
-    }
-    const latestByPasto: Record<string, string> = {};
-    const suppForPasto: Record<string, string> = {};
-    for (const e of entries) {
-      if (!e.pasto || !e.data || !e.tipo || !suppIsCreep[e.tipo]) continue;
-      const k = norm(e.pasto);
-      if (!latestByPasto[k] || e.data > latestByPasto[k]) {
-        latestByPasto[k] = e.data;
-        suppForPasto[k] = e.tipo;
-      }
-    }
-    const result: Record<string, number> = {};
-    for (const [k, suppNome] of Object.entries(suppForPasto)) {
-      const gmd = suppGmdByNome[suppNome];
-      if (gmd && gmd > 0) result[k] = gmd;
-    }
-    return result;
-  }, [suppTypes, entries]);
-
-
   // Mapa: norm(pasto_nome) → consumoPct (%) do suplemento adulto mais recente (exclui Creep)
   // + diagnóstico: norm(pasto_nome) → nome do suplemento detectado (mesmo sem consumo cadastrado)
   const pastoNomeMetaMap = useMemo(() => {

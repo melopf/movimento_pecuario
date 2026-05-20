@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { History, Filter, TrendingUp, BarChart2, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   Tooltip, Legend, CartesianGrid, ReferenceLine,
