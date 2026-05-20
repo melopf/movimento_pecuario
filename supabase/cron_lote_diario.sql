@@ -1,9 +1,34 @@
 -- ══════════════════════════════════════════════════════════════
--- Cron job: popula lote_diario todo dia às 23:00
--- Execute no Supabase SQL Editor
+-- Cron automático: popula lote_diario todo dia às 23:00
+-- Cobre HOJE + retroativo completo por fazenda (sem botão manual)
+-- Execute no Supabase SQL Editor para registrar o agendamento
 -- ══════════════════════════════════════════════════════════════
 
--- 1. Função que faz o upsert diário
+-- 1. Função wrapper: itera por todas as fazendas ativas e chama o retroativo
+CREATE OR REPLACE FUNCTION auto_populate_lote_diario()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  rec record;
+BEGIN
+  FOR rec IN
+    SELECT id FROM farms WHERE active = true OR active IS NULL
+  LOOP
+    BEGIN
+      PERFORM upsert_lote_diario_retroativo(rec.id);
+    EXCEPTION WHEN OTHERS THEN
+      -- Loga e continua para as outras fazendas
+      RAISE WARNING 'Erro ao processar fazenda %: %', rec.id, SQLERRM;
+    END;
+  END LOOP;
+END;
+$$;
+
+-- ──────────────────────────────────────────────────────────────
+-- 2. Função legada (mantida para compatibilidade — cobre só hoje)
+-- ──────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION upsert_lote_diario_hoje()
 RETURNS void
 LANGUAGE plpgsql
@@ -12,11 +37,9 @@ AS $$
 DECLARE
   today date := CURRENT_DATE;
 BEGIN
-  -- Remove registros não confirmados de hoje para recriar com dados frescos
   DELETE FROM lote_diario
   WHERE data = today AND confirmado = false;
 
-  -- Insere registro por animal ativo com suplemento ou GMD no pasto
   INSERT INTO lote_diario (
     farm_id, animal_id, data, pasto_id, pasto_nome,
     suplemento, fonte_meta, meta_pct, meta_kg_cab, meta_kg_total,
@@ -29,24 +52,18 @@ BEGIN
     a.pasto_id,
     p.nome                                                          AS pasto_nome,
     ls.suplemento,
-
     CASE
       WHEN a.meta_percentagem IS NOT NULL THEN 'manual'
       WHEN mp.meta_pct        IS NOT NULL THEN 'suplemento'
       ELSE NULL
     END                                                             AS fonte_meta,
-
     COALESCE(a.meta_percentagem, mp.meta_pct)                       AS meta_pct,
-
-    -- meta_kg_cab = peso_medio × meta_pct / 100
     CASE
       WHEN COALESCE(a.meta_percentagem, mp.meta_pct) IS NOT NULL
        AND a.peso_medio IS NOT NULL
       THEN ROUND(
              (a.peso_medio * COALESCE(a.meta_percentagem, mp.meta_pct) / 100.0)::numeric, 4)
     END                                                             AS meta_kg_cab,
-
-    -- meta_kg_total = meta_kg_cab × quantidade
     CASE
       WHEN COALESCE(a.meta_percentagem, mp.meta_pct) IS NOT NULL
        AND a.peso_medio IS NOT NULL
@@ -54,16 +71,12 @@ BEGIN
              (a.peso_medio * COALESCE(a.meta_percentagem, mp.meta_pct) / 100.0
               * COALESCE(a.quantidade, 1))::numeric, 3)
     END                                                             AS meta_kg_total,
-
     CASE WHEN COALESCE(ls.quantidade, 0) > 0
       THEN ROUND((ls.kg::numeric / ls.quantidade), 4)
       ELSE NULL
     END                                                             AS consumo_kg_cab,
-
     COALESCE(a.gmd, st.gmd_esperado)                                AS gmd,
     COALESCE(a.gmd, st.gmd_esperado)                                AS ganho_dia,
-
-    -- ganho_acum = gmd × dias desde data_entrada
     CASE
       WHEN COALESCE(a.gmd, st.gmd_esperado) IS NOT NULL
        AND a.data_entrada IS NOT NULL
@@ -72,8 +85,6 @@ BEGIN
               * GREATEST(0, today - a.data_entrada))::numeric, 3)
       ELSE 0
     END                                                             AS ganho_acum,
-
-    -- peso_estimado = peso_medio + ganho_acum
     COALESCE(a.peso_medio, 0) + CASE
       WHEN COALESCE(a.gmd, st.gmd_esperado) IS NOT NULL
        AND a.data_entrada IS NOT NULL
@@ -82,13 +93,9 @@ BEGIN
               * GREATEST(0, today - a.data_entrada))::numeric, 1)
       ELSE 0
     END                                                             AS peso_estimado,
-
     false                                                           AS confirmado
-
   FROM animals a
   JOIN pastures p ON p.id = a.pasto_id
-
-  -- Suplemento adulto mais recente do pasto (ignora Creep)
   LEFT JOIN LATERAL (
     SELECT de.suplemento, de.kg, de.quantidade
     FROM data_entries de
@@ -101,13 +108,9 @@ BEGIN
     ORDER BY de.data DESC, de.created_at DESC
     LIMIT 1
   ) ls ON true
-
-  -- Tipo do suplemento para GMD e consumo%
   LEFT JOIN supplement_types st
     ON  st.farm_id = a.farm_id
     AND UPPER(TRIM(st.nome)) = UPPER(TRIM(ls.suplemento))
-
-  -- Converte consumo% em valor numérico de meta
   LEFT JOIN LATERAL (
     SELECT CASE st.consumo
       WHEN '20 A 30 GRAMAS/100 KG PV'   THEN 0.030
@@ -122,41 +125,27 @@ BEGIN
       ELSE NULL
     END AS meta_pct
   ) mp ON true
-
   WHERE (a.status = 'ativo' OR a.status IS NULL)
     AND a.pasto_id IS NOT NULL
     AND (
       COALESCE(a.gmd, st.gmd_esperado) IS NOT NULL
       OR COALESCE(a.meta_percentagem, mp.meta_pct) IS NOT NULL
     )
-
-  -- Pula registros que já existem confirmados (não sobrescreve)
   ON CONFLICT (farm_id, animal_id, data) DO NOTHING;
-
 END;
 $$;
 
 -- ──────────────────────────────────────────────────────────────
--- 2. Agendamento via pg_cron (todo dia às 23:00 horário do servidor)
+-- 3. Agendamento: retroativo completo todo dia às 23:00
 -- ──────────────────────────────────────────────────────────────
-
--- Remove agendamento anterior se já existir
 SELECT cron.unschedule('upsert-lote-diario-23h');
 
--- Cria o agendamento
 SELECT cron.schedule(
   'upsert-lote-diario-23h',
   '0 23 * * *',
-  'SELECT upsert_lote_diario_hoje()'
+  'SELECT auto_populate_lote_diario()'
 );
 
--- Confirma que foi criado
 SELECT jobname, schedule, command, active
 FROM cron.job
 WHERE jobname = 'upsert-lote-diario-23h';
-
--- ──────────────────────────────────────────────────────────────
--- 3. Testar manualmente (opcional — roda agora para ver se funciona)
--- ──────────────────────────────────────────────────────────────
--- SELECT upsert_lote_diario_hoje();
--- SELECT * FROM lote_diario ORDER BY data DESC LIMIT 20;
