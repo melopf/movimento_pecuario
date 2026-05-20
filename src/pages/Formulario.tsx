@@ -374,7 +374,7 @@ export function Formulario() {
         userName:    user?.name ?? '',
         module:      'formulario',
         action:      'criou',
-        description: `${entry.pasto} · ${entry.tipo} · ${entry.sacos} sac. · ${entry.kg} kg · ${entry.data.slice(8)}/${entry.data.slice(5,7)}/${entry.data.slice(2,4)}`,
+        description: `${entry.pasto} · ${entry.tipo} · ${entry.sacos} sac. · ${entry.kg} kg · ${(entry.data ?? '').slice(8)}/${(entry.data ?? '').slice(5,7)}/${(entry.data ?? '').slice(2,4)}`,
       });
     }
 
@@ -399,7 +399,7 @@ export function Formulario() {
         userName:    user?.name ?? '',
         module:      'formulario',
         action:      'criou',
-        description: `${entryBez.pasto} · ${entryBez.tipo} (bezerros) · ${entryBez.sacos} sac. · ${entryBez.kg} kg · ${entryBez.data.slice(8)}/${entryBez.data.slice(5,7)}/${entryBez.data.slice(2,4)}`,
+        description: `${entryBez.pasto} · ${entryBez.tipo} (bezerros) · ${entryBez.sacos} sac. · ${entryBez.kg} kg · ${(entryBez.data ?? '').slice(8)}/${(entryBez.data ?? '').slice(5,7)}/${(entryBez.data ?? '').slice(2,4)}`,
       });
     }
 

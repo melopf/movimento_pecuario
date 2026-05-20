@@ -156,13 +156,6 @@ export function Historico() {
       user_name: e.user_name || undefined,
       created_at: e.created_at,
     }));
-    const lanItems: HistoricoEntry[] = lancamentos.map(l => ({
-      id: `l_${l.id}`,
-      source: 'lancamento',
-      tipo: 'lancamento',
-      descricao: `${l.pasto_nome} · ${l.suplemento} · ${l.quantidade} cab. · ${l.sacos} sac. · ${l.kg} kg`,
-      created_at: l.data || '',
-    }));
     const actItems: HistoricoEntry[] = activityLogs.map(a => ({
       id: `a_${a.id}`,
       source: 'activity' as const,
