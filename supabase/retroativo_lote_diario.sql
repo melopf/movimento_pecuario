@@ -8,10 +8,15 @@ AS $$
 DECLARE
   total_rows integer;
 BEGIN
+  -- Segurança: nunca processar todas as fazendas de uma vez
+  IF p_farm_id IS NULL THEN
+    RAISE EXCEPTION 'p_farm_id é obrigatório';
+  END IF;
+
   WITH
 
-  -- Calcula periodo_efetivo = dias até o próximo lançamento do mesmo pasto+suplemento
-  -- Mesma lógica do timeSeriesConsumo() do frontend (utils.ts)
+  -- Cada lançamento cobre os N dias ANTERIORES à data do lançamento (retroativo)
+  -- periodo = número de dias, data = último dia do período
   lancamentos_com_periodo AS (
     SELECT
       de.farm_id,
@@ -19,23 +24,12 @@ BEGIN
       de.pasto_nome,
       de.pasto_id,
       de.suplemento,
-      de.data::date   AS data_lancamento,
+      de.data::date                             AS data_lancamento,
       de.kg,
       de.quantidade,
-      GREATEST(
-        COALESCE(
-          -- Intervalo até o próximo lançamento (mesma lógica que timeSeriesConsumo)
-          LEAD(de.data::date) OVER (
-            PARTITION BY de.farm_id, UPPER(TRIM(de.pasto_nome)), UPPER(TRIM(de.suplemento))
-            ORDER BY de.data::date
-          ) - de.data::date,
-          NULLIF(de.periodo::integer, 0),
-          30  -- fallback: 30 dias se não há próximo lançamento
-        ),
-        1
-      ) AS periodo_efetivo
+      GREATEST(COALESCE(NULLIF(de.periodo::integer, 0), 30), 1) AS periodo_efetivo
     FROM data_entries de
-    WHERE (p_farm_id IS NULL OR de.farm_id = p_farm_id)
+    WHERE de.farm_id = p_farm_id
       AND de.data IS NOT NULL
       AND UPPER(de.suplemento) NOT LIKE '%CREEP%'
   ),
@@ -77,14 +71,15 @@ BEGIN
     LEFT JOIN supplement_types st
       ON  st.farm_id = lcp.farm_id
       AND UPPER(TRIM(st.nome)) = UPPER(TRIM(lcp.suplemento))
-    -- Série PARA FRENTE: do dia do lançamento até o dia antes do próximo
+    -- Série RETROATIVA: do (data - periodo + 1) até a data do lançamento
     CROSS JOIN LATERAL generate_series(
-      lcp.data_lancamento,
-      LEAST(lcp.data_lancamento + lcp.periodo_efetivo - 1, CURRENT_DATE),
+      lcp.data_lancamento - lcp.periodo_efetivo + 1,
+      LEAST(lcp.data_lancamento, CURRENT_DATE),
       '1 day'::interval
     ) AS gs
   ),
 
+  -- Para cada dia, usa o lançamento mais recente que cubra aquele dia
   lancamentos_latest AS (
     SELECT DISTINCT ON (farm_id, pasto_id, dia)
       *
@@ -125,7 +120,6 @@ BEGIN
               * COALESCE(a.quantidade, 1))::numeric, 3)
     END                                                               AS meta_kg_total,
     l.consumo_kg_cab,
-    -- GMD: manual do animal > simulador_parametros (época+pasto) > gmd_esperado do suplemento
     COALESCE(
       a.gmd,
       CASE UPPER(TRIM(l.qualidade_forragem))
@@ -202,7 +196,6 @@ BEGIN
     ON  a.farm_id  = l.farm_id
     AND a.pasto_id = l.pasto_id
     AND (a.status = 'ativo' OR a.status IS NULL)
-  -- Época calculada pelo mês do dia: Jul-Out = seca, Nov-Fev = aguas, Mar-Jun = transicao
   LEFT JOIN simulador_parametros sp
     ON  UPPER(TRIM(sp.categoria)) = UPPER(TRIM(l.categoria_simulador))
     AND sp.epoca = CASE
@@ -229,5 +222,3 @@ BEGIN
   RETURN total_rows;
 END;
 $$;
-
-SELECT upsert_lote_diario_retroativo();

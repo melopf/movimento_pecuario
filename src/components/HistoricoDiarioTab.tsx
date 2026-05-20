@@ -48,6 +48,7 @@ export function HistoricoDiarioTab({ farmId, animals }: Props) {
   }
 
   async function handleReprocessar() {
+    if (!farmId) { toast.error('Fazenda não identificada'); return; }
     setReprocessing(true);
     try {
       const total = await manejoService.reprocessarRetroativo(farmId);

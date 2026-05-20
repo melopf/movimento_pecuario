@@ -871,9 +871,9 @@ export const manejoService = {
     }
   },
 
-  async reprocessarRetroativo(farmId?: string): Promise<number> {
-    const params = farmId ? { p_farm_id: farmId } : {};
-    const { data, error } = await supabaseAdmin.rpc('upsert_lote_diario_retroativo', params);
+  async reprocessarRetroativo(farmId: string): Promise<number> {
+    if (!farmId) throw new Error('farmId obrigatório — reprocessamento cancelado');
+    const { data, error } = await supabaseAdmin.rpc('upsert_lote_diario_retroativo', { p_farm_id: farmId });
     if (error) throw new Error(error.message);
     return (data as number) ?? 0;
   },
