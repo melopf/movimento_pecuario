@@ -101,9 +101,16 @@ function LotesTab({
   const [dataAlocacao, setDataAlocacao] = useState(() => new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
 
-  async function handleMetaSave(animalId: string, pct: number | null) {
+  async function handleMetaSave(
+    animalId: string,
+    pct: number | null,
+    effectivePct: number | null,
+    quantidade: number,
+  ) {
     try {
+      const fonteMeta = pct != null ? 'manual' : (effectivePct != null ? 'suplemento' : null);
       await manejoService.atualizarMetaPercentagem(animalId, pct);
+      await manejoService.recalcularMetaNaoConfirmados(animalId, effectivePct, fonteMeta, quantidade);
       onReload();
     } catch {
       toast.error('Erro ao salvar percentagem.');
@@ -335,7 +342,7 @@ function LotesTab({
                       if (!isAuto) {
                         setEditMode(false);
                         setDraft('');
-                        await handleMetaSave(a.id, null);
+                        await handleMetaSave(a.id, null, pastoMetaPct, a.quantidade);
                       } else {
                         setEditMode(true);
                         setDraft(pastoMetaPct != null ? String(pastoMetaPct) : '');
@@ -361,7 +368,7 @@ function LotesTab({
                     if (draft === '' && a.meta_percentagem == null) { setEditMode(false); return; }
                     const val = draft === '' ? null : parseFloat(draft.replace(',', '.'));
                     if (val !== null && isNaN(val)) return;
-                    await handleMetaSave(a.id, val);
+                    await handleMetaSave(a.id, val, val ?? pastoMetaPct, a.quantidade);
                   }}
                   className={`w-12 h-6 px-1 text-xs font-semibold rounded text-center transition-colors ${
                     inputLocked

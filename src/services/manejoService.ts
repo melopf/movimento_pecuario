@@ -905,6 +905,37 @@ export const manejoService = {
     if (error) throw new Error(error.message);
   },
 
+  // Recalcula meta_pct/meta_kg_cab/meta_kg_total em todos os registros não confirmados do animal
+  async recalcularMetaNaoConfirmados(
+    animalId: string,
+    effectivePct: number | null,
+    fonteMeta: string | null,
+    quantidade: number,
+  ): Promise<void> {
+    const { data: records, error: fetchErr } = await supabaseAdmin
+      .from('lote_diario')
+      .select('*')
+      .eq('animal_id', animalId)
+      .eq('confirmado', false);
+
+    if (fetchErr) throw new Error(fetchErr.message);
+    if (!records || records.length === 0) return;
+
+    type Row = Record<string, unknown> & { peso_estimado: number | null };
+    const updates = (records as Row[]).map(r => {
+      const meta_kg_cab = effectivePct != null && r.peso_estimado != null
+        ? parseFloat((r.peso_estimado * effectivePct / 100).toFixed(4))
+        : null;
+      const meta_kg_total = meta_kg_cab != null
+        ? parseFloat((meta_kg_cab * quantidade).toFixed(3))
+        : null;
+      return { ...r, meta_pct: effectivePct, meta_kg_cab, meta_kg_total, fonte_meta: fonteMeta };
+    });
+
+    const { error: upsertErr } = await supabaseAdmin.from('lote_diario').upsert(updates);
+    if (upsertErr) throw new Error(upsertErr.message);
+  },
+
   async listarHistorico(farmId: string, tipo?: string | string[], limit = 30): Promise<ManejoEvent[]> {
     let q = supabaseAdmin
       .from('manejo_historico')
