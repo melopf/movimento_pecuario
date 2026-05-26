@@ -173,7 +173,7 @@ export function Historico() {
     let entries = allEntries;
     if (filterType === 'manejo') entries = entries.filter(e => e.source === 'manejo');
     else if (filterType === 'lancamento') entries = entries.filter(e => e.source === 'lancamento' || (e.source === 'activity' && e.module === 'formulario'));
-    else if (filterType === 'activity') entries = entries.filter(e => e.source === 'activity' && e.module !== 'formulario');
+    else if (filterType === 'activity') entries = entries.filter(e => e.source === 'activity');
     if (dateFrom) entries = entries.filter(e => e.created_at >= dateFrom);
     if (dateTo)   entries = entries.filter(e => e.created_at.slice(0, 10) <= dateTo);
     if (filterLote) {
@@ -468,9 +468,11 @@ export function Historico() {
                               {MODULE_LABELS[e.module] ?? e.module}
                             </span>
                           )}
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ACTION_COLORS[e.action ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
-                            {ACTION_LABELS[e.action ?? ''] ?? e.action}
-                          </span>
+                          {e.action && e.action !== 'criou' && (
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ACTION_COLORS[e.action] ?? 'bg-gray-100 text-gray-600'}`}>
+                              {ACTION_LABELS[e.action] ?? e.action}
+                            </span>
+                          )}
                         </>
                       ) : (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${TIPO_COLORS[e.tipo] ?? 'bg-gray-100 text-gray-600'}`}>

@@ -272,10 +272,11 @@ function LotesTab({
     const bezPesoNum   = base.reduce((s, a) => s + (a.bezerros_quantidade ?? 0) * (a.bezerros_peso_medio ?? 0), 0);
     const bezPesoDen   = base.filter(a => a.bezerros_quantidade && a.bezerros_peso_medio).reduce((s, a) => s + (a.bezerros_quantidade ?? 0), 0);
     const bezPesoMedio = bezPesoDen > 0 ? bezPesoNum / bezPesoDen : null;
-    // Taxa de Lotação: UA = (cab×pesoGado + bez×pesoBez) / 450 → UA/ha
-    const totalKgUA    = base.reduce((s, a) => s + a.quantidade * (a.peso_medio ?? 0) + (a.bezerros_quantidade ?? 0) * (a.bezerros_peso_medio ?? 0), 0);
-    const totalUA      = totalKgUA / 450;
-    const taxaLotacao  = totalHA > 0 && totalKgUA > 0 ? totalUA / totalHA : null;
+    // Taxa de Lotação: UA = (cab×pesoGado + bez×pesoBez) / 450 ÷ área TOTAL da fazenda (todos os pastos cadastrados)
+    const totalKgUA      = base.reduce((s, a) => s + a.quantidade * (a.peso_medio ?? 0) + (a.bezerros_quantidade ?? 0) * (a.bezerros_peso_medio ?? 0), 0);
+    const totalUA        = totalKgUA / 450;
+    const totalHAFazenda = pastures.reduce((s, p) => s + (p.area ?? 0), 0);
+    const taxaLotacao    = totalHAFazenda > 0 && totalKgUA > 0 ? totalUA / totalHAFazenda : null;
     const pastosTotal    = pastures.length;
     const pastosOcupados = new Set(ativos.filter(a => a.pasto_id).map(a => a.pasto_id)).size;
     return { totalHA, totalLotes, totalCab, pesoMedio, totalBez, bezPesoMedio, taxaLotacao, pastosTotal, pastosOcupados };
@@ -332,7 +333,16 @@ function LotesTab({
           <td className="px-4 py-2.5 font-medium text-gray-900 text-sm">{a.nome}</td>
           <td className="px-4 py-2.5 text-xs text-gray-600">{a.categoria_id ? catMap[a.categoria_id] ?? '—' : '—'}</td>
           <td className="px-4 py-2.5 text-sm font-semibold" style={{ color: '#1a6040' }}>{a.quantidade.toLocaleString('pt-BR')}</td>
-          <td className="px-4 py-2.5 text-xs text-gray-600">{a.peso_medio ? `${a.peso_medio} kg` : '—'}</td>
+          <td className="px-4 py-2.5 text-xs">
+            {(() => {
+              if (a.gmd && a.data_entrada && a.peso_medio) {
+                const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada).getTime()) / 86_400_000));
+                const pesoSim = Math.round(a.peso_medio + a.gmd * dias);
+                return <span className="font-semibold" style={{ color: '#1a6040' }} title={`Simulado: ${dias}d × ${a.gmd}kg/d`}>{pesoSim} kg</span>;
+              }
+              return <span className="text-gray-600">{a.peso_medio ? `${a.peso_medio} kg` : '—'}</span>;
+            })()}
+          </td>
           <td className="px-4 py-2.5">
             <div className="flex flex-col gap-1">
               {/* Linha 1: toggle + input + % */}
@@ -547,19 +557,11 @@ function LotesTab({
                     </p>
                   </div>
                   <div className="w-px h-6 bg-gray-100 flex-shrink-0" />
-                  <div>
-                    <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-400 mb-0.5">Peso Médio</p>
-                    <p className="text-base font-bold text-gray-800 leading-none">
-                      {a.peso_medio ? <>{a.peso_medio}<span className="text-[10px] font-normal text-gray-400"> kg</span></> : '—'}
-                    </p>
-                  </div>
                   {(() => {
-                    if (!a.gmd || !a.data_entrada || !a.peso_medio) return null;
-                    const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada).getTime()) / 86_400_000));
-                    const pesoSim = a.peso_medio + a.gmd * dias;
-                    return (
-                      <>
-                        <div className="w-px h-6 bg-gray-100 flex-shrink-0" />
+                    if (a.gmd && a.data_entrada && a.peso_medio) {
+                      const dias = Math.max(0, Math.floor((Date.now() - new Date(a.data_entrada).getTime()) / 86_400_000));
+                      const pesoSim = a.peso_medio + a.gmd * dias;
+                      return (
                         <div>
                           <p className="text-[9px] font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#1a6040' }}>Peso Simulado</p>
                           <p className="text-base font-bold leading-none" style={{ color: '#1a6040' }}>
@@ -567,7 +569,15 @@ function LotesTab({
                           </p>
                           <p className="text-[9px] text-gray-400">+{dias}d · {a.gmd} kg/d</p>
                         </div>
-                      </>
+                      );
+                    }
+                    return (
+                      <div>
+                        <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-400 mb-0.5">Peso Médio</p>
+                        <p className="text-base font-bold text-gray-800 leading-none">
+                          {a.peso_medio ? <>{a.peso_medio}<span className="text-[10px] font-normal text-gray-400"> kg</span></> : '—'}
+                        </p>
+                      </div>
                     );
                   })()}
                 </div>
