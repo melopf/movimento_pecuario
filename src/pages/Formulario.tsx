@@ -302,8 +302,11 @@ export function Formulario() {
         bez:       a.bezerros_quantidade ?? 0,
       };
     });
-    const bezEquiv = Math.floor(totalBez / 3);
-    const equivalentCab = totalCab + bezEquiv;
+    // T-282: regra 3-por-1 desativada — revisar se remove definitivamente
+    // const bezEquiv = Math.floor(totalBez / 3);
+    // const equivalentCab = totalCab + bezEquiv;
+    const bezEquiv = 0;
+    const equivalentCab = totalCab;
     return { totalCab, nLotes: lotesNoPasto.length, totalBez, bezEquiv, equivalentCab, lotes };
   }, [selectedPasto, pastures, animals, animalCategories]);
 
@@ -559,11 +562,12 @@ export function Formulario() {
                         </span>
                       )}
                     </div>
+                    {/* T-282: exibição "Equiv. adulto (gado + ⌊bez÷3⌋)" desativada — revisar
                     {pastoInfo.bezEquiv > 0 && (
                       <p className="text-[10px] text-gray-500 mt-0.5">
                         Equiv. adulto: <span className="font-semibold" style={{color:'#1a6040'}}>{pastoInfo.equivalentCab} cab.</span> <span className="text-gray-400">(gado + ⌊bez÷3⌋)</span>
                       </p>
-                    )}
+                    )} */}
 
                     {/* Detalhe por lote */}
                     {pastoInfo.nLotes >= 1 && (
