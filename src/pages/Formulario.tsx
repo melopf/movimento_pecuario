@@ -279,6 +279,9 @@ export function Formulario() {
     }
   }, [activeMonth, setValue]);
 
+  const selectedPasto = watch('pasto');
+  const selectedTipo  = watch('tipo');
+
   // B-06: ao selecionar pasto, pré-preenche o suplemento sugerido (editável)
   useEffect(() => {
     if (!selectedPasto) return;
@@ -287,9 +290,6 @@ export function Formulario() {
       setValue('tipo', pasture.suplemento_sugerido);
     }
   }, [selectedPasto, pastures, setValue]);
-
-  const selectedPasto = watch('pasto');
-  const selectedTipo  = watch('tipo');
   const sacos         = watch('sacos');
   const selectedTipoBez = watch('tipoBez');
   const sacosBez        = watch('sacosBez');

@@ -1,3 +1,24 @@
+## [1.30.0] — 2026-05-27
+
+### Adicionado
+- **B-06 — Suplemento sugerido no Formulário**: ao selecionar um pasto, o campo "Tipo de Suplemento" é pré-preenchido com o `suplemento_sugerido` cadastrado no pasto — o lançador pode alterar livremente
+
+### Alterado
+- **B-01 — Taxa de Lotação**: agora divide pela área total de TODOS os pastos cadastrados (não só os ocupados), valor mais preciso
+- **B-07 / C-01 — Peso Simulado**: cards LISTA e CARDS do Manejos exibem peso simulado em verde quando há GMD; peso médio estático em cinza quando sem GMD
+- **META % → Histórico Diário**: ao alterar a % META de um lote, todos os registros não confirmados em `lote_diario` são recalculados automaticamente com o novo percentual
+
+### Corrigido
+- **A-04 — Badge "CRIAÇÃO"**: removido do Histórico de Manejos — ações `criou` não exibem mais badge de tipo
+- **A-05 — Filtro ATIVIDADES**: passa a listar registros de lançamentos criados/excluídos no Formulário corretamente
+- **T-282 — Regra 3-por-1 bezerros**: comentada para revisão futura (equivalência `3 bezerros = 1 adulto` desativada)
+- **Fix TS2448**: declaração de `selectedPasto` movida antes do `useEffect` B-06 no Formulário
+
+### Tokens de Design
+- Brand: #1a6040 (verde Movimento Pecuário)
+- Navy: #0b2748 | Purple: #6b2fa0
+- Stack: React 18 + Vite 6 + Tailwind v4 + Recharts 2
+
 ## [1.29.0] — 2026-05-14
 
 ### Adicionado
