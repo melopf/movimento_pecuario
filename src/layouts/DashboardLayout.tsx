@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router';
-import { FileText, BarChart3, Building2, LogOut, User, FolderOpen, Users, ChevronDown, ClipboardList, BookOpen, Construction, Leaf, History, ArrowUp, Menu, X as XIcon, Package, ScrollText, FlaskConical } from 'lucide-react';
+import { FileText, BarChart3, Building2, LogOut, User, FolderOpen, Users, ChevronDown, ClipboardList, BookOpen, Construction, Leaf, History, ArrowUp, Menu, X as XIcon, Package, ScrollText, FlaskConical, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
@@ -92,6 +92,17 @@ export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [estoqueAlertas, setEstoqueAlertas] = useState(0);
 
+  /* Colapso do sidebar (desktop) — persistido */
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    localStorage.getItem('mp-sidebar-collapsed') === 'true'
+  );
+  function toggleCollapse() {
+    setSidebarCollapsed(v => {
+      localStorage.setItem('mp-sidebar-collapsed', String(!v));
+      return !v;
+    });
+  }
+
   useEffect(() => {
     function onScroll() { setShowBackTop(window.scrollY > 300); }
     window.addEventListener('scroll', onScroll);
@@ -145,6 +156,15 @@ export function DashboardLayout() {
     navigate('/login');
   }
 
+  /* Estilo de link nav ativo/inativo */
+  const activeStyle = {
+    background: 'linear-gradient(135deg, #1a6040, #0f4a30)',
+    color: '#ffffff',
+    boxShadow: '0 4px 16px rgba(26,96,64,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
+    border: '1px solid rgba(26,96,64,0.3)',
+  };
+  const inactiveStyle = { color: '#6b7280' };
+
   return (
     <div
       className="flex min-h-screen"
@@ -192,7 +212,8 @@ export function DashboardLayout() {
         className={`
           flex flex-col flex-shrink-0 relative no-print
           fixed md:sticky top-0 h-screen z-40
-          w-64 transition-transform duration-300
+          transition-all duration-300 ease-in-out
+          ${sidebarCollapsed ? 'w-16' : 'w-64'}
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
         style={{
@@ -205,15 +226,14 @@ export function DashboardLayout() {
       >
         {/* Logo */}
         <motion.div
-          className="p-5"
+          className={`flex flex-col ${sidebarCollapsed ? 'items-center p-3' : 'p-5'}`}
           style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          {/* Zoo Flora — cliente */}
           <div
-            className="rounded-xl p-3 mb-3"
+            className={`rounded-xl ${sidebarCollapsed ? 'p-1.5 w-10' : 'p-3 mb-3 w-full'}`}
             style={{
               background: 'rgba(255,255,255,0.9)',
               border: '1px solid rgba(0,0,0,0.08)',
@@ -222,18 +242,22 @@ export function DashboardLayout() {
           >
             <img src="/images/logo.png" alt="Movimento Pecuário" className="w-full h-auto" />
           </div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold text-gray-800">Suplemento Control</h1>
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
-              style={{ background: 'rgba(26,96,64,0.08)', color: '#1a6040', borderColor: 'rgba(26,96,64,0.18)' }}>
-              v1.27b
-            </span>
-          </div>
-          <p className="text-xs mt-0.5 truncate text-gray-400">{user?.name}</p>
+          {!sidebarCollapsed && (
+            <>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-bold text-gray-800">Suplemento Control</h1>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+                  style={{ background: 'rgba(26,96,64,0.08)', color: '#1a6040', borderColor: 'rgba(26,96,64,0.18)' }}>
+                  v1.30
+                </span>
+              </div>
+              <p className="text-xs mt-0.5 truncate text-gray-400">{user?.name}</p>
+            </>
+          )}
         </motion.div>
 
         {/* Seletor de fazenda — admin (todas) ou cliente multi-fazenda */}
-        {(isAdmin || (user?.farmIds?.length ?? 0) > 1) && (
+        {!sidebarCollapsed && (isAdmin || (user?.farmIds?.length ?? 0) > 1) && (
           <motion.div
             className="pt-3"
             style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
@@ -246,7 +270,7 @@ export function DashboardLayout() {
         )}
 
         {/* Nav */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto sidebar-nav">
+        <nav className={`flex-1 overflow-y-auto sidebar-nav ${sidebarCollapsed ? 'p-2 space-y-1' : 'p-4 space-y-1'}`}>
           {visibleNavItems.map((item, index) => {
             const isActive =
               item.path === '/'
@@ -263,15 +287,13 @@ export function DashboardLayout() {
                 <Link
                   to={item.path}
                   onClick={() => setSidebarOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200"
-                  style={isActive ? {
-                    background: 'linear-gradient(135deg, #1a6040, #0f4a30)',
-                    color: '#ffffff',
-                    boxShadow: '0 4px 16px rgba(26,96,64,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
-                    border: '1px solid rgba(26,96,64,0.3)',
-                  } : {
-                    color: '#6b7280',
-                  }}
+                  title={sidebarCollapsed ? item.label : undefined}
+                  className={`flex items-center rounded-xl transition-all duration-200 ${
+                    sidebarCollapsed
+                      ? 'justify-center p-3'
+                      : 'gap-3 px-4 py-2.5'
+                  }`}
+                  style={isActive ? activeStyle : inactiveStyle}
                   onMouseEnter={e => {
                     if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)';
                   }}
@@ -279,20 +301,32 @@ export function DashboardLayout() {
                     if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent';
                   }}
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm font-medium">{item.label}</span>
-                  {item.module === 'estoque' && estoqueAlertas > 0 && (
-                    <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                      style={{ background: '#ef4444', color: '#fff', minWidth: '18px', textAlign: 'center' }}>
-                      {estoqueAlertas}
-                    </span>
+                  <div className="relative flex-shrink-0">
+                    <Icon className="w-4 h-4" />
+                    {item.module === 'estoque' && estoqueAlertas > 0 && sidebarCollapsed && (
+                      <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full"
+                        style={{ background: '#ef4444', color: '#fff' }}>
+                        {estoqueAlertas}
+                      </span>
+                    )}
+                  </div>
+                  {!sidebarCollapsed && (
+                    <>
+                      <span className="text-sm font-medium">{item.label}</span>
+                      {item.module === 'estoque' && estoqueAlertas > 0 && (
+                        <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: '#ef4444', color: '#fff', minWidth: '18px', textAlign: 'center' }}>
+                          {estoqueAlertas}
+                        </span>
+                      )}
+                    </>
                   )}
                 </Link>
               </motion.div>
             );
           })}
 
-            {/* ── Simulador + Planejamento — somente perfil admin ── */}
+          {/* ── Simulador + Planejamento — somente perfil admin ── */}
           {isAdmin && (
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -307,18 +341,21 @@ export function DashboardLayout() {
                     <Link
                       to="/simulador"
                       onClick={() => setSidebarOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200"
+                      title={sidebarCollapsed ? 'Simulador' : undefined}
+                      className={`flex items-center rounded-xl transition-all duration-200 ${
+                        sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-2.5'
+                      }`}
                       style={isActive ? {
                         background: 'linear-gradient(135deg, #1a6040, #4c1d7a)',
                         color: '#ffffff',
                         boxShadow: '0 4px 16px rgba(26,96,64,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
                         border: '1px solid rgba(26,96,64,0.3)',
-                      } : { color: '#6b7280' }}
+                      } : inactiveStyle}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
                       <FlaskConical className="w-4 h-4 flex-shrink-0" />
-                      <span className="text-sm font-medium">Simulador</span>
+                      {!sidebarCollapsed && <span className="text-sm font-medium">Simulador</span>}
                     </Link>
                   );
                 })()}
@@ -328,23 +365,33 @@ export function DashboardLayout() {
                   return (
                     <Link
                       to="/devplan"
-                      className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200"
-                      style={isActive ? {
-                        background: 'linear-gradient(135deg, #1a6040, #0f4a30)',
-                        color: '#ffffff',
-                        boxShadow: '0 4px 16px rgba(26,96,64,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
-                        border: '1px solid rgba(26,96,64,0.3)',
-                      } : { color: '#6b7280' }}
+                      title={sidebarCollapsed ? 'Planejamento' : undefined}
+                      className={`flex items-center rounded-xl transition-all duration-200 ${
+                        sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-2.5'
+                      }`}
+                      style={isActive ? activeStyle : inactiveStyle}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
-                      <ClipboardList className="w-4 h-4 flex-shrink-0" />
-                      <span className="text-sm font-medium">Planejamento</span>
-                      {unreadComments > 0 && (
-                        <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                          style={{ background: '#ef4444', color: '#fff', minWidth: '18px', textAlign: 'center' }}>
-                          {unreadComments}
-                        </span>
+                      <div className="relative flex-shrink-0">
+                        <ClipboardList className="w-4 h-4" />
+                        {unreadComments > 0 && sidebarCollapsed && (
+                          <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full"
+                            style={{ background: '#ef4444', color: '#fff' }}>
+                            {unreadComments}
+                          </span>
+                        )}
+                      </div>
+                      {!sidebarCollapsed && (
+                        <>
+                          <span className="text-sm font-medium">Planejamento</span>
+                          {unreadComments > 0 && (
+                            <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                              style={{ background: '#ef4444', color: '#fff', minWidth: '18px', textAlign: 'center' }}>
+                              {unreadComments}
+                            </span>
+                          )}
+                        </>
                       )}
                     </Link>
                   );
@@ -353,27 +400,47 @@ export function DashboardLayout() {
             </motion.div>
           )}
 
-          {/* ── Módulos em breve (clientes veem) ── */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: visibleNavItems.length * 0.08 }}
-          >
-            <div className="mt-3 pt-3 space-y-1" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-              <button
-                onClick={() => setShowEmDev(true)}
-                className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all duration-200 opacity-40 hover:opacity-60"
-                style={{ color: '#6b7280' }}
-              >
-                <Leaf className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm font-medium">Formulário Pasto</span>
-                <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-gray-300 text-gray-400">
-                  EM BREVE
-                </span>
-              </button>
-            </div>
-          </motion.div>
+          {/* ── Módulos em breve (clientes veem) — só quando expandido ── */}
+          {!sidebarCollapsed && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: visibleNavItems.length * 0.08 }}
+            >
+              <div className="mt-3 pt-3 space-y-1" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <button
+                  onClick={() => setShowEmDev(true)}
+                  className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl transition-all duration-200 opacity-40 hover:opacity-60"
+                  style={{ color: '#6b7280' }}
+                >
+                  <Leaf className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Formulário Pasto</span>
+                  <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-gray-300 text-gray-400">
+                    EM BREVE
+                  </span>
+                </button>
+              </div>
+            </motion.div>
+          )}
         </nav>
+
+        {/* Botão colapsar/expandir — desktop only */}
+        <div className="hidden md:flex px-2 pb-2" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+          <button
+            onClick={toggleCollapse}
+            title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            className={`flex items-center rounded-xl transition-all duration-200 text-gray-400 hover:text-gray-600 mt-2 w-full ${
+              sidebarCollapsed ? 'justify-center p-3' : 'gap-2 px-4 py-2.5'
+            }`}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            {sidebarCollapsed
+              ? <PanelLeftOpen className="w-4 h-4" />
+              : <><PanelLeftClose className="w-4 h-4" /><span className="text-xs font-medium">Recolher menu</span></>
+            }
+          </button>
+        </div>
 
         {/* Modal em desenvolvimento */}
         {showEmDev && (
@@ -409,32 +476,40 @@ export function DashboardLayout() {
         )}
 
         {/* Footer */}
-        <div className="p-4 space-y-2" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-          <div className="flex items-center gap-3 px-2">
+        <div className={`space-y-2 ${sidebarCollapsed ? 'p-2' : 'p-4'}`} style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+          <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-2'}`}>
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
               style={{ background: 'rgba(26,96,64,0.10)', border: '1px solid rgba(26,96,64,0.15)' }}
+              title={sidebarCollapsed ? user?.name : undefined}
             >
               <User className="w-4 h-4 text-teal-600" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-800 truncate">{user?.name}</p>
-              <span
-                className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide"
-                style={isAdmin
-                  ? { background: 'rgba(26,96,64,0.12)', color: '#1a6040' }
-                  : { background: 'rgba(59,130,246,0.12)', color: '#2563eb' }
-                }
-              >
-                {isAdmin ? 'Admin' : 'Cliente'}
-              </span>
-            </div>
-            {/* Movimento Pecuário — criador do software */}
-            <img src="/images/logo.png" alt="Movimento Pecuário" className="h-6 w-auto opacity-60 flex-shrink-0" />
+            {!sidebarCollapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-800 truncate">{user?.name}</p>
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide"
+                  style={isAdmin
+                    ? { background: 'rgba(26,96,64,0.12)', color: '#1a6040' }
+                    : { background: 'rgba(59,130,246,0.12)', color: '#2563eb' }
+                  }
+                >
+                  {isAdmin ? 'Admin' : 'Cliente'}
+                </span>
+              </div>
+            )}
+            {!sidebarCollapsed && (
+              /* Movimento Pecuário — criador do software */
+              <img src="/images/logo.png" alt="Movimento Pecuário" className="h-6 w-auto opacity-60 flex-shrink-0" />
+            )}
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl transition-all text-sm text-gray-400"
+            title={sidebarCollapsed ? 'Sair' : undefined}
+            className={`flex items-center w-full rounded-xl transition-all text-sm text-gray-400 ${
+              sidebarCollapsed ? 'justify-center p-3' : 'gap-2 px-3 py-2'
+            }`}
             onMouseEnter={e => {
               (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)';
               (e.currentTarget as HTMLElement).style.color = '#374151';
@@ -445,7 +520,7 @@ export function DashboardLayout() {
             }}
           >
             <LogOut className="w-4 h-4" />
-            <span>Sair</span>
+            {!sidebarCollapsed && <span>Sair</span>}
           </button>
         </div>
         {/* Footer verde — fechamento visual do sidebar */}
@@ -467,7 +542,7 @@ export function DashboardLayout() {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-33 left-52 z-50 w-9 h-9 rounded-full flex items-center justify-center shadow-lg no-print"
+          className="fixed bottom-8 right-8 z-50 w-9 h-9 rounded-full flex items-center justify-center shadow-lg no-print"
           style={{ background: 'linear-gradient(135deg, #1a6040, #0f4a30)', color: '#fff' }}
           title="Voltar ao topo"
         >
