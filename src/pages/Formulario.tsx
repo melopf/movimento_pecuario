@@ -279,6 +279,15 @@ export function Formulario() {
     }
   }, [activeMonth, setValue]);
 
+  // B-06: ao selecionar pasto, pré-preenche o suplemento sugerido (editável)
+  useEffect(() => {
+    if (!selectedPasto) return;
+    const pasture = pastures.find(p => p.nome === selectedPasto);
+    if (pasture?.suplemento_sugerido) {
+      setValue('tipo', pasture.suplemento_sugerido);
+    }
+  }, [selectedPasto, pastures, setValue]);
+
   const selectedPasto = watch('pasto');
   const selectedTipo  = watch('tipo');
   const sacos         = watch('sacos');
