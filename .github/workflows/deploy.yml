@@ -37,7 +37,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: 21
           local-dir: ./dist/
-          server-dir: /sistema.movimentopecuario.com.br/
+          server-dir: /
           exclude: |
             **/.git*
             **/.git*/**
