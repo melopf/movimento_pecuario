@@ -38,7 +38,7 @@ jobs:
           port: 21
           local-dir: ./dist/
           server-dir: /
-          dangerous-clean-slate: true
+          state-name: .ftp-deploy-sync-v2
           exclude: |
             **/.git*
             **/.git*/**
